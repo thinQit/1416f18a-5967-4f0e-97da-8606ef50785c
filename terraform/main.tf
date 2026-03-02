@@ -71,5 +71,9 @@ resource "azurerm_container_app" "app" {
         value = "production"
       }
       env {
-        name  = "P
-... [truncated]
+        name  = "PORT"
+        value = "3000"
+      }
+    }
+  }
+}
