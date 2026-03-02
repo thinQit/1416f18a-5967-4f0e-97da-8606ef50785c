@@ -19,7 +19,7 @@ export default function HomePage() {
             <p className="text-sm text-secondary">
               Register and sign in to access the full product suite.
             </p>
-            <Button asChild>
+            <Button>
               <Link href="/register">Get started</Link>
             </Button>
           </CardContent>
@@ -30,7 +30,7 @@ export default function HomePage() {
             <p className="text-sm text-secondary">
               Browse products with search, sorting, and pagination.
             </p>
-            <Button variant="outline" asChild>
+            <Button variant="outline">
               <Link href="/products">View products</Link>
             </Button>
           </CardContent>
@@ -41,7 +41,7 @@ export default function HomePage() {
             <p className="text-sm text-secondary">
               Track user and product totals in the dashboard.
             </p>
-            <Button variant="ghost" asChild>
+            <Button variant="ghost">
               <Link href="/dashboard">Open dashboard</Link>
             </Button>
           </CardContent>
