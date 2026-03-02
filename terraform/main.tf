@@ -15,9 +15,9 @@ data "azurerm_container_registry" "acr" {
 
 locals {
   container_app_name_base = trim(
-    regexreplace(
-      regexreplace(lower(var.container_app_name), "[^a-z0-9-]", "-"),
-      "-+",
+    replace(
+      replace(lower(var.container_app_name), "/[^a-z0-9-]/", "-"),
+      "/-+/",
       "-"
     ),
     "-"
@@ -71,19 +71,5 @@ resource "azurerm_container_app" "app" {
         value = "production"
       }
       env {
-        name  = "PORT"
-        value = "3000"
-      }
-      env {
-        name  = "HOSTNAME"
-        value = "0.0.0.0"
-      }
-    }
-  }
-
-  lifecycle {
-    ignore_changes = [
-      template[0].container[0].image
-    ]
-  }
-}
+        name  = "P
+... [truncated]
