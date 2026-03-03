@@ -1,111 +1,111 @@
-export type ApiResponse<T> = {
-  data: T | null;
+export type ApiError = {
+  message: string;
+  status: number;
+};
+
+export type ApiResult<T> = {
+  data?: T;
   error?: string;
-  status?: number;
+  status: number;
 };
 
-let authToken: string | null = null;
+export async function apiRequest<T>(
+  url: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
 
-const readStoredToken = () => {
-  if (authToken) return authToken;
-  if (typeof window !== "undefined") {
-    authToken = window.localStorage.getItem("authToken");
+  if (!response.ok) {
+    const message = await response.text();
+    throw { message: message || response.statusText, status: response.status } as ApiError;
   }
-  return authToken;
-};
 
-export const setAuthToken = (token: string | null) => {
-  authToken = token;
-  if (typeof window !== "undefined") {
-    if (token) {
-      window.localStorage.setItem("authToken", token);
-    } else {
-      window.localStorage.removeItem("authToken");
+  if (response.status === 204) {
+    return null as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+async function request<T>(url: string, options: RequestInit = {}): Promise<ApiResult<T>> {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {}),
+    },
+  });
+
+  const status = response.status;
+  const text = await response.text();
+  let parsed: unknown = null;
+
+  if (text) {
+    try {
+      parsed = JSON.parse(text) as unknown;
+    } catch {
+      parsed = null;
     }
   }
-};
 
-const buildHeaders = (custom?: HeadersInit, includeJson?: boolean) => {
-  const headers = new Headers(custom);
-  const token = readStoredToken();
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-  if (includeJson && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-  return headers;
-};
+  if (!response.ok) {
+    const error =
+      (parsed as { error?: string; message?: string } | null)?.error ||
+      (parsed as { error?: string; message?: string } | null)?.message ||
+      text ||
+      response.statusText;
 
-async function request<T>(url: string, options: RequestInit): Promise<ApiResponse<T>> {
-  const res = await fetch(url, options);
-  const contentType = res.headers.get("content-type") ?? "";
-  let data: T | null = null;
-
-  if (contentType.includes("application/json")) {
-    data = (await res.json()) as T;
-  } else {
-    const text = await res.text();
-    data = (text as unknown) as T;
+    return { error, status };
   }
 
-  if (!res.ok) {
-    const error = typeof data === "string" ? data : (data as any)?.error ?? res.statusText;
-    return { data, error, status: res.status };
+  if (status === 204) {
+    return { status };
   }
 
-  return { data, status: res.status };
+  const data =
+    parsed && typeof parsed === 'object' && parsed !== null && 'data' in parsed
+      ? (parsed as { data: T }).data
+      : (parsed as T);
+
+  return { data, status };
 }
 
-export async function apiGet<T>(url: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-  return request<T>(url, {
-    ...options,
-    method: "GET",
-    headers: buildHeaders(options.headers, false),
-  });
+export async function getJSON<T>(url: string): Promise<T> {
+  return apiRequest<T>(url, { method: 'GET' });
 }
 
-export async function apiPost<T, B>(url: string, body: B, options: RequestInit = {}): Promise<ApiResponse<T>> {
-  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
-  return request<T>(url, {
-    ...options,
-    method: "POST",
-    headers: buildHeaders(options.headers, !isFormData),
-    body: isFormData ? (body as FormData) : JSON.stringify(body),
-  });
-}
-
-export async function apiPut<T, B>(url: string, body: B, options: RequestInit = {}): Promise<ApiResponse<T>> {
-  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
-  return request<T>(url, {
-    ...options,
-    method: "PUT",
-    headers: buildHeaders(options.headers, !isFormData),
-    body: isFormData ? (body as FormData) : JSON.stringify(body),
-  });
-}
-
-export async function apiDelete<T, B = undefined>(
-  url: string,
-  body?: B,
-  options: RequestInit = {}
-): Promise<ApiResponse<T>> {
-  const hasBody = typeof body !== "undefined";
-  const isFormData = hasBody && typeof FormData !== "undefined" && body instanceof FormData;
-  return request<T>(url, {
-    ...options,
-    method: "DELETE",
-    headers: buildHeaders(options.headers, hasBody && !isFormData),
-    body: hasBody ? (isFormData ? (body as FormData) : JSON.stringify(body)) : undefined,
+export async function postJSON<T>(url: string, body: unknown): Promise<T> {
+  return apiRequest<T>(url, {
+    method: 'POST',
+    body: JSON.stringify(body),
   });
 }
 
 export const api = {
-  get: apiGet,
-  post: apiPost,
-  put: apiPut,
-  delete: apiDelete,
-  setToken: setAuthToken,
-  clearToken: () => setAuthToken(null),
-  getToken: readStoredToken,
+  get<T>(url: string, options: RequestInit = {}) {
+    return request<T>(url, { ...options, method: 'GET' });
+  },
+  post<T>(url: string, body?: unknown, options: RequestInit = {}) {
+    return request<T>(url, {
+      ...options,
+      method: 'POST',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  },
+  put<T>(url: string, body?: unknown, options: RequestInit = {}) {
+    return request<T>(url, {
+      ...options,
+      method: 'PUT',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  },
+  delete<T>(url: string, options: RequestInit = {}) {
+    return request<T>(url, { ...options, method: 'DELETE' });
+  },
 };

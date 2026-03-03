@@ -42,7 +42,7 @@ jobs:
             -var="sp_client_secret=${{ secrets.AZURE_CLIENT_SECRET }}" \
             -var="resource_group=${{ secrets.RESOURCE_GROUP }}" \
             -var="location=${{ secrets.AZURE_LOCATION }}" \
-            -var="container_app_name=${{ secrets.CODEX_PROJECT_ID }}" \
+            -var="container_app_name=${{ secrets.CONTAINER_APP_NAME }}" \
             -var="container_apps_env_name=${{ secrets.CONTAINER_APPS_ENV }}" \
             -var="acr_name=${{ secrets.ACR_NAME }}" \
             -var="acr_login_server=${{ secrets.ACR_LOGIN_SERVER }}"
@@ -72,7 +72,7 @@ jobs:
           acrName: ${{ secrets.ACR_NAME }}
           acrUsername: ${{ secrets.ACR_NAME }}
           acrPassword: ${{ secrets.ACR_PASSWORD }}
-          containerAppName: ${{ secrets.CODEX_PROJECT_ID }}
+          containerAppName: ${{ secrets.CONTAINER_APP_NAME }}
           resourceGroup: ${{ secrets.RESOURCE_GROUP }}
           runtimeStack: "node:20"
           targetPort: 3000

@@ -1,13 +1,17 @@
-"use client";
+'use client';
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useMemo, useState } from 'react';
 
-type Toast = { id: string; message: string };
+export type Toast = {
+  id: string;
+  message: string;
+  type?: 'success' | 'error' | 'info';
+};
 
 type ToastContextValue = {
   toasts: Toast[];
-  showToast: (message: string) => void;
-  toast: (message: string) => void;
+  toast: (message: string, type?: Toast['type']) => void;
+  addToast: (message: string, type?: Toast['type']) => void;
   removeToast: (id: string) => void;
 };
 
@@ -16,34 +20,33 @@ const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, []);
+  const removeToast = (id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  };
 
-  const showToast = useCallback(
-    (message: string) => {
-      const id = Math.random().toString(36).slice(2);
-      setToasts((prev) => [...prev, { id, message }]);
-      setTimeout(() => removeToast(id), 3000);
-    },
-    [removeToast]
-  );
+  const addToast = (message: string, type: Toast['type'] = 'info') => {
+    const id = Math.random().toString(36).slice(2);
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => removeToast(id), 4000);
+  };
+
+  const toast = addToast;
 
   const value = useMemo(
-    () => ({ toasts, showToast, toast: showToast, removeToast }),
-    [toasts, showToast, removeToast]
+    () => ({ toasts, toast, addToast, removeToast }),
+    [toasts]
   );
 
   return (
     <ToastContext.Provider value={value}>
       {children}
       <div className="fixed right-4 top-4 z-50 space-y-2">
-        {toasts.map((toast) => (
+        {toasts.map((toastItem) => (
           <div
-            key={toast.id}
-            className="rounded bg-gray-900 px-3 py-2 text-sm text-white shadow"
+            key={toastItem.id}
+            className="rounded bg-black px-4 py-2 text-sm text-white shadow"
           >
-            {toast.message}
+            {toastItem.message}
           </div>
         ))}
       </div>
@@ -52,9 +55,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useToast() {
-  const ctx = useContext(ToastContext);
-  if (!ctx) {
-    throw new Error("useToast must be used within ToastProvider");
+  const context = useContext(ToastContext);
+  if (!context) {
+    throw new Error('useToast must be used within ToastProvider');
   }
-  return ctx;
+  return context;
 }

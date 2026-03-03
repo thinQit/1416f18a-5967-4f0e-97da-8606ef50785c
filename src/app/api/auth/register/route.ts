@@ -1,39 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { hashPassword } from '@/lib/auth';
+import { hashPassword, signToken } from '@/lib/auth';
 
-const schema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Valid email is required'),
-  password: z.string().min(8, 'Password must be at least 8 characters')
+const registerSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(6)
 });
 
 export async function POST(request: NextRequest) {
+  let payload: z.infer<typeof registerSchema>;
   try {
-    const body = await request.json();
-    const data = schema.parse(body);
+    const json = await request.json();
+    payload = registerSchema.parse(json);
+  } catch {
+    return NextResponse.json({ success: false, error: 'Invalid input' }, { status: 400 });
+  }
 
-    const existing = await db.user.findUnique({ where: { email: data.email } });
+  try {
+    const existing = await db.user.findUnique({ where: { email: payload.email } });
     if (existing) {
-      return NextResponse.json({ success: false, error: 'Email already registered' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Email already registered' }, { status: 409 });
     }
 
-    const passwordHash = await hashPassword(data.password);
+    const passwordHash = await hashPassword(payload.password);
     const user = await db.user.create({
       data: {
-        name: data.name,
-        email: data.email,
+        name: payload.name,
+        email: payload.email,
         passwordHash,
         role: 'user'
       }
     });
 
-    return NextResponse.json({ success: true, data: { id: user.id, email: user.email } }, { status: 201 });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.errors.map(err => err.message).join(', ') }, { status: 400 });
-    }
-    return NextResponse.json({ success: false, error: 'Registration failed' }, { status: 500 });
+    const token = signToken({ sub: user.id, role: user.role });
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await db.authSession.create({
+      data: {
+        token,
+        userId: user.id,
+        expiresAt
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          createdAt: user.createdAt
+        }
+      }
+    }, { status: 201 });
+  } catch {
+    return NextResponse.json({ success: false, error: 'Failed to register' }, { status: 500 });
   }
 }

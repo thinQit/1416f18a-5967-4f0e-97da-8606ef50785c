@@ -1,84 +1,137 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { Product } from '@prisma/client';
 import { db } from '@/lib/db';
-import { getCurrentUser, isAdmin } from '@/lib/auth-helpers';
-
-const createSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().min(1, 'Description is required'),
-  price: z.number().positive('Price must be greater than 0'),
-  inventory: z.number().int().min(0, 'Inventory must be 0 or greater'),
-  imageUrl: z.string().url('Image URL must be valid').optional()
-});
+import { getCurrentUser } from '@/lib/auth';
 
 const querySchema = z.object({
-  page: z.string().optional(),
-  limit: z.string().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(100).default(10),
   q: z.string().optional(),
-  sort: z.string().optional()
+  minPrice: z.coerce.number().optional(),
+  maxPrice: z.coerce.number().optional()
 });
 
-const allowedSortFields = ['title', 'price', 'createdAt', 'inventory', 'updatedAt'];
+const createSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional(),
+  price: z.coerce.number().positive(),
+  sku: z.string().optional(),
+  stock: z.coerce.number().int().min(0).optional(),
+  images: z.array(z.string().url()).optional()
+});
 
-type SortOrder = 'asc' | 'desc';
+function parseImages(images: string | null): string[] {
+  if (!images) return [];
+  try {
+    const parsed = JSON.parse(images) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function formatProduct(product: Product) {
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    sku: product.sku,
+    stock: product.stock,
+    images: parseImages(product.images),
+    createdBy: product.createdBy,
+    createdAt: product.createdAt,
+    updatedAt: product.updatedAt
+  };
+}
 
 export async function GET(request: NextRequest) {
+  let query: z.infer<typeof querySchema>;
   try {
-    const parsed = querySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
-    const pageValue = Number(parsed.page ?? 1);
-    const limitValue = Number(parsed.limit ?? 20);
+    const { searchParams } = new URL(request.url);
+    const raw = {
+      page: searchParams.get('page') ?? undefined,
+      pageSize: searchParams.get('pageSize') ?? undefined,
+      q: searchParams.get('q') ?? undefined,
+      minPrice: searchParams.get('minPrice') ?? undefined,
+      maxPrice: searchParams.get('maxPrice') ?? undefined
+    };
+    query = querySchema.parse(raw);
+  } catch {
+    return NextResponse.json({ success: false, error: 'Invalid query parameters' }, { status: 400 });
+  }
 
-    const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
-    const limit = Number.isFinite(limitValue) && limitValue > 0 ? Math.min(limitValue, 100) : 20;
-    const q = parsed.q?.trim() ?? '';
+  try {
+    const where: Record<string, unknown> = { deleted: false };
 
-    const sortParam = parsed.sort ?? 'createdAt:desc';
-    const [field, order] = sortParam.split(':');
-    const sortField = allowedSortFields.includes(field) ? field : 'createdAt';
-    const sortOrder: SortOrder = order === 'asc' ? 'asc' : 'desc';
+    if (query.q) {
+      where.OR = [
+        { name: { contains: query.q } },
+        { description: { contains: query.q } }
+      ];
+    }
 
-    const where = q
-      ? { title: { contains: q, mode: 'insensitive' } }
-      : {};
+    if (query.minPrice !== undefined || query.maxPrice !== undefined) {
+      where.price = {
+        ...(query.minPrice !== undefined ? { gte: query.minPrice } : {}),
+        ...(query.maxPrice !== undefined ? { lte: query.maxPrice } : {})
+      };
+    }
 
-    const [items, total] = await Promise.all([
+    const [total, items] = await Promise.all([
+      db.product.count({ where }),
       db.product.findMany({
         where,
-        orderBy: { [sortField]: sortOrder },
-        skip: (page - 1) * limit,
-        take: limit
-      }),
-      db.product.count({ where })
+        orderBy: { createdAt: 'desc' },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize
+      })
     ]);
 
-    return NextResponse.json({ success: true, data: { items, total, page, limit } });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.errors.map(err => err.message).join(', ') }, { status: 400 });
-    }
+    return NextResponse.json({
+      success: true,
+      data: {
+        total,
+        page: query.page,
+        pageSize: query.pageSize,
+        items: items.map(formatProduct)
+      }
+    });
+  } catch {
     return NextResponse.json({ success: false, error: 'Failed to fetch products' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
+  const user = await getCurrentUser(request);
+  if (!user) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  let payload: z.infer<typeof createSchema>;
   try {
-    const user = await getCurrentUser(request);
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-    if (!isAdmin(user)) {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-    }
+    const json = await request.json();
+    payload = createSchema.parse(json);
+  } catch {
+    return NextResponse.json({ success: false, error: 'Invalid input' }, { status: 400 });
+  }
 
-    const body = await request.json();
-    const data = createSchema.parse(body);
+  try {
+    const product = await db.product.create({
+      data: {
+        name: payload.name,
+        description: payload.description ?? '',
+        price: payload.price,
+        sku: payload.sku ?? null,
+        stock: payload.stock ?? 0,
+        images: JSON.stringify(payload.images ?? []),
+        createdBy: user.id
+      }
+    });
 
-    const product = await db.product.create({ data });
-    return NextResponse.json({ success: true, data: product }, { status: 201 });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.errors.map(err => err.message).join(', ') }, { status: 400 });
-    }
+    return NextResponse.json({ success: true, data: formatProduct(product) }, { status: 201 });
+  } catch {
     return NextResponse.json({ success: false, error: 'Failed to create product' }, { status: 500 });
   }
 }

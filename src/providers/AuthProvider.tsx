@@ -1,43 +1,108 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { api } from '@/lib/api';
 
-type User = { id: string; name: string; email: string; role: string } | null;
+export type AuthUser = {
+  id: string;
+  email: string;
+  name?: string | null;
+  role?: 'user' | 'admin';
+  createdAt?: string;
+  updatedAt?: string;
+};
 
 type AuthContextValue = {
-  user: User;
-  isAdmin: boolean;
-  signIn: (user: NonNullable<User>) => void;
+  user: AuthUser | null;
+  loading: boolean;
+  setUser: (user: AuthUser | null) => void;
+  login: (user: AuthUser) => void;
+  logout: () => void;
   signOut: () => void;
-  setUser: (user: User) => void;
+  isAuthenticated: () => boolean;
+  isAdmin: () => boolean;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const signIn = (nextUser: NonNullable<User>) => setUser(nextUser);
-  const signOut = () => setUser(null);
+  useEffect(() => {
+    let mounted = true;
+    async function loadUser() {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        if (mounted) {
+          setUser(null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const response = await api.get<AuthUser>('/api/auth/me', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (mounted) {
+          if (response.data) {
+            setUser(response.data);
+          } else {
+            setUser(null);
+          }
+        }
+      } catch {
+        if (mounted) setUser(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    loadUser();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const login = (nextUser: AuthUser) => {
+    setUser(nextUser);
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('token');
+  };
+
+  const signOut = logout;
+
+  const isAuthenticated = () => Boolean(user);
+  const isAdmin = () => user?.role === 'admin';
 
   const value = useMemo(
     () => ({
       user,
-      isAdmin: user?.role === "admin",
-      signIn,
-      signOut,
+      loading,
       setUser,
+      login,
+      logout,
+      signOut,
+      isAuthenticated,
+      isAdmin,
     }),
-    [user]
+    [user, loading]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within AuthProvider");
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
   }
-  return ctx;
+  return context;
 }

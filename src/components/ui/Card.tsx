@@ -1,45 +1,24 @@
-import React from "react";
+import React from 'react';
 
-export type CardProps = React.HTMLAttributes<HTMLDivElement>;
+type CardProps = React.HTMLAttributes<HTMLDivElement>;
 
-export const Card = React.forwardRef<HTMLDivElement, CardProps>(function Card(
-  { className, ...props },
-  ref
-) {
+type CardSectionProps = React.HTMLAttributes<HTMLDivElement>;
+
+function Card({ className = '', ...props }: CardProps) {
   return (
     <div
-      ref={ref}
-      className={
-        "rounded-lg border border-gray-200 bg-white text-gray-900 shadow-sm " +
-        (className ?? "")
-      }
+      className={`rounded-lg border border-gray-200 bg-white p-4 shadow-sm ${className}`}
       {...props}
     />
   );
-});
+}
 
-export const CardHeader = React.forwardRef<HTMLDivElement, CardProps>(
-  function CardHeader({ className, ...props }, ref) {
-    return (
-      <div
-        ref={ref}
-        className={"border-b border-gray-100 px-4 py-3 " + (className ?? "")}
-        {...props}
-      />
-    );
-  }
-);
+export function CardHeader({ className = '', ...props }: CardSectionProps) {
+  return <div className={`mb-3 text-lg font-semibold ${className}`} {...props} />;
+}
 
-export const CardContent = React.forwardRef<HTMLDivElement, CardProps>(
-  function CardContent({ className, ...props }, ref) {
-    return (
-      <div
-        ref={ref}
-        className={"px-4 py-3 " + (className ?? "")}
-        {...props}
-      />
-    );
-  }
-);
+export function CardContent({ className = '', ...props }: CardSectionProps) {
+  return <div className={`text-sm text-gray-700 ${className}`} {...props} />;
+}
 
 export default Card;

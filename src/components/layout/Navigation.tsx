@@ -2,91 +2,64 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import Button from '@/components/ui/Button';
 import { useAuth } from '@/providers/AuthProvider';
-import { cn } from '@/lib/utils';
-
-const links = [
-  { href: '/products', label: 'Products' },
-  { href: '/admin', label: 'Admin' }
-];
+import Button from '@/components/ui/Button';
 
 export function Navigation() {
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const { user, logout, loading, isAuthenticated, isAdmin } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
 
   return (
     <header className="border-b border-border bg-background">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4">
-        <Link href="/" className="text-lg font-semibold">ProductManager</Link>
+      <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
+        <Link href="/" className="text-lg font-semibold text-foreground">
+          ProductManager
+        </Link>
         <button
           type="button"
-          className="sm:hidden"
+          className="md:hidden inline-flex items-center justify-center rounded-md p-2 text-foreground hover:bg-muted"
           aria-label="Toggle navigation"
-          aria-expanded={open}
-          onClick={() => setOpen(prev => !prev)}
+          onClick={() => setOpen(v => !v)}
         >
           <span className="block h-0.5 w-6 bg-foreground" />
           <span className="mt-1 block h-0.5 w-6 bg-foreground" />
           <span className="mt-1 block h-0.5 w-6 bg-foreground" />
         </button>
-        <nav className="hidden items-center gap-6 sm:flex">
-          {links.map(link => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                'text-sm font-medium hover:text-primary',
-                pathname === link.href && 'text-primary'
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
-          {!loading && !isAuthenticated && (
-            <div className="flex items-center gap-2">
-              <Link href="/login" className="text-sm font-medium hover:text-primary">Login</Link>
-              <Link href="/register" className="text-sm font-medium hover:text-primary">Register</Link>
-            </div>
+        <div className="hidden md:flex items-center gap-6">
+          <Link href="/products" className="text-sm text-foreground hover:text-primary">Products</Link>
+          {isAdmin && (
+            <Link href="/dashboard" className="text-sm text-foreground hover:text-primary">Dashboard</Link>
           )}
-          {!loading && isAuthenticated && (
+          {user ? (
             <div className="flex items-center gap-3">
-              <span className="text-sm">{user?.name}</span>
-              <Button type="button" size="sm" variant="ghost" onClick={logout}>Logout</Button>
-              {isAdmin && <Link href="/products/new" className="text-sm font-medium hover:text-primary">Add Product</Link>}
+              <span className="text-sm text-secondary">{user.name}</span>
+              <Button variant="outline" size="sm" onClick={logout}>Logout</Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link href="/login" className="text-sm text-foreground hover:text-primary">Login</Link>
+              <Link href="/register" className="text-sm text-foreground hover:text-primary">Sign Up</Link>
             </div>
           )}
-        </nav>
-      </div>
+        </div>
+      </nav>
       {open && (
-        <div className="border-t border-border px-4 py-3 sm:hidden">
-          <div className="flex flex-col gap-3">
-            {links.map(link => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn('text-sm font-medium', pathname === link.href && 'text-primary')}
-                onClick={() => setOpen(false)}
-              >
-                {link.label}
-              </Link>
-            ))}
-            {!loading && !isAuthenticated && (
-              <div className="flex flex-col gap-2">
-                <Link href="/login" className="text-sm font-medium" onClick={() => setOpen(false)}>Login</Link>
-                <Link href="/register" className="text-sm font-medium" onClick={() => setOpen(false)}>Register</Link>
-              </div>
-            )}
-            {!loading && isAuthenticated && (
-              <div className="flex flex-col gap-2">
-                <span className="text-sm">{user?.name}</span>
-                <Button type="button" size="sm" variant="ghost" onClick={logout}>Logout</Button>
-                {isAdmin && <Link href="/products/new" className="text-sm font-medium" onClick={() => setOpen(false)}>Add Product</Link>}
-              </div>
-            )}
-          </div>
+        <div className="md:hidden border-t border-border px-4 py-4 space-y-2">
+          <Link href="/products" className="block text-sm text-foreground hover:text-primary">Products</Link>
+          {isAdmin && (
+            <Link href="/dashboard" className="block text-sm text-foreground hover:text-primary">Dashboard</Link>
+          )}
+          {user ? (
+            <div className="flex items-center gap-3 pt-2">
+              <span className="text-sm text-secondary">{user.name}</span>
+              <Button variant="outline" size="sm" onClick={logout}>Logout</Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 pt-2">
+              <Link href="/login" className="text-sm text-foreground hover:text-primary">Login</Link>
+              <Link href="/register" className="text-sm text-foreground hover:text-primary">Sign Up</Link>
+            </div>
+          )}
         </div>
       )}
     </header>

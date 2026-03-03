@@ -108,6 +108,4 @@ export interface DashboardStats {
   totalMenuItems: number;
 }
 
-export type TaskStatus = 'todo' | 'in_progress' | 'done';
-export type TaskPriority = 'low' | 'medium' | 'high';
 export type UserRole = 'customer' | 'admin';

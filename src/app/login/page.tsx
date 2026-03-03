@@ -1,112 +1,128 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Input from '@/components/ui/Input';
+import Link from 'next/link';
 import Button from '@/components/ui/Button';
+import Input from '@/components/ui/Input';
+import Card, { CardContent, CardHeader } from '@/components/ui/Card';
+import { useAuth } from '@/providers/AuthProvider';
 import { useToast } from '@/providers/ToastProvider';
 import { api } from '@/lib/api';
-import { useAuth } from '@/providers/AuthProvider';
 
 interface LoginResponse {
-  accessToken: string;
-  refreshToken?: string;
-  expiresIn: number;
-}
-
-interface MeResponse {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
+  token: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: 'user' | 'admin';
+  };
 }
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const { toast } = useToast();
-  const { setUser } = useAuth();
-  const [loading, setLoading] = useState(false);
+
   const [form, setForm] = useState({ email: '', password: '' });
-  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState<string | null>(null);
+
+  const validate = () => {
+    const next: { email?: string; password?: string } = {};
+    if (!form.email.trim()) next.email = 'Email is required.';
+    if (!form.password.trim()) next.password = 'Password is required.';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
 
   const handleChange = (field: 'email' | 'password') => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setError(null);
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setServerError(null);
+    if (!validate()) return;
+
     setLoading(true);
-
-    const res = await api.post<LoginResponse>('/api/auth/login', {
-      email: form.email.trim(),
-      password: form.password
-    });
-
-    if (res.error || !res.data?.accessToken) {
-      setLoading(false);
-      setError(res.error || 'Unable to login.');
-      return;
-    }
-
-    localStorage.setItem('token', res.data.accessToken);
-
     try {
-      const meRes = await fetch('/api/users/me', {
-        headers: { Authorization: `Bearer ${res.data.accessToken}` }
-      });
-      const meData = (await meRes.json()) as MeResponse | { error?: string };
-
-      if (!meRes.ok || 'error' in meData) {
-        setLoading(false);
-        setError('Failed to load user profile.');
+      const response = await api.post<LoginResponse>('/api/auth/login', form);
+      if (!response.data || response.error) {
+        setServerError(response.error || 'Login failed.');
         return;
       }
-
-      setUser({
-        id: meData.id,
-        email: meData.email,
-        name: meData.name,
-        role: meData.role === 'admin' ? 'admin' : 'customer',
+      localStorage.setItem('token', response.data.token);
+      login({
+        id: response.data.user.id,
+        name: response.data.user.name,
+        email: response.data.user.email,
+        role: response.data.user.role,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       });
+      toast('Welcome back!', 'success');
+      router.push('/products');
     } catch (_error) {
+      setServerError('Something went wrong. Please try again.');
+    } finally {
       setLoading(false);
-      setError('Unable to fetch profile.');
-      return;
     }
-
-    setLoading(false);
-    toast('Logged in successfully', 'success');
-    router.push('/products');
   };
 
   return (
-    <div className="mx-auto max-w-md space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl font-semibold">Sign in</h1>
-        <p className="text-sm text-muted-foreground">Access your product dashboard.</p>
+    <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-4 py-10">
+      <div className="w-full max-w-xl text-center">
+        <h1 className="text-3xl font-semibold">Welcome back</h1>
+        <p className="mt-2 text-sm text-secondary">Sign in to continue managing your products.</p>
       </div>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <Input label="Email" type="email" name="email" value={form.email} onChange={handleChange('email')} required />
-        <Input label="Password" type="password" name="password" value={form.password} onChange={handleChange('password')} required />
-        {error && (
-          <p className="text-sm text-error" role="alert" aria-live="polite">
-            {error}
+      <Card className="w-full max-w-xl">
+        <CardHeader>
+          <h2 className="text-lg font-semibold">Log in</h2>
+        </CardHeader>
+        <CardContent>
+          <form className="space-y-4" onSubmit={handleSubmit}>
+            <Input
+              label="Email"
+              name="email"
+              type="email"
+              placeholder="you@example.com"
+              value={form.email}
+              onChange={handleChange('email')}
+              error={errors.email}
+              autoComplete="email"
+              required
+            />
+            <Input
+              label="Password"
+              name="password"
+              type="password"
+              placeholder="Your password"
+              value={form.password}
+              onChange={handleChange('password')}
+              error={errors.password}
+              autoComplete="current-password"
+              required
+            />
+            {serverError && (
+              <p className="text-sm text-error" role="alert">
+                {serverError}
+              </p>
+            )}
+            <Button type="submit" fullWidth loading={loading}>
+              Sign in
+            </Button>
+          </form>
+          <p className="mt-4 text-center text-sm text-secondary">
+            New here?{' '}
+            <Link href="/register" className="font-medium text-primary hover:underline">
+              Create an account
+            </Link>
           </p>
-        )}
-        <Button type="submit" loading={loading} fullWidth>
-          Login
-        </Button>
-      </form>
-      <p className="text-sm text-muted-foreground">
-        Need an account?{' '}
-        <Link href="/register" className="text-primary hover:underline">
-          Register here
-        </Link>
-      </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -1,99 +1,191 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Card, { CardContent, CardHeader } from '@/components/ui/Card';
+import Badge from '@/components/ui/Badge';
 import Spinner from '@/components/ui/Spinner';
-import { api } from '@/lib/api';
+import Button from '@/components/ui/Button';
 import { useAuth } from '@/providers/AuthProvider';
-import { useToast } from '@/providers/ToastProvider';
 
-interface DashboardStats {
+interface DashboardResponse {
   totalUsers: number;
   totalProducts: number;
+  recentProducts: Array<{
+    id: string;
+    name: string;
+    price: number;
+    createdAt?: string;
+  }>;
+  recentUsers: Array<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    createdAt?: string;
+  }>;
 }
 
 export default function DashboardPage() {
-  const router = useRouter();
-  const { user, loading: authLoading, isAdmin } = useAuth();
-  const { toast } = useToast();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const { isAdmin, loading: authLoading } = useAuth();
+  const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && (!user || !isAdmin)) {
-      router.push('/products');
-    }
-  }, [authLoading, isAdmin, router, user]);
-
-  useEffect(() => {
-    if (!user || !isAdmin) return;
-
-    const loadStats = async () => {
-      setLoading(true);
-      setError('');
-
-      const res = await api.get<DashboardStats>('/api/dashboard');
-
-      if (res.error || !res.data) {
-        const message = res.error || 'Unable to load dashboard stats.';
-        setError(message);
-        toast(message, 'error');
+    const fetchMetrics = async () => {
+      if (!isAdmin()) {
         setLoading(false);
         return;
       }
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('Missing authentication token.');
+          setLoading(false);
+          return;
+        }
 
-      setStats(res.data);
-      setLoading(false);
+        const response = await fetch('/api/dashboard/metrics', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({ error: 'Unable to load metrics.' }));
+          setError(err.error || 'Unable to load metrics.');
+          setData(null);
+          return;
+        }
+
+        const payload = (await response.json()) as DashboardResponse;
+        setData(payload);
+      } catch (_error) {
+        setError('Unable to load metrics.');
+        setData(null);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    loadStats();
-  }, [isAdmin, toast, user]);
+    if (!authLoading) {
+      void fetchMetrics();
+    }
+  }, [authLoading, isAdmin]);
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
+      <div className="mx-auto flex min-h-[60vh] w-full max-w-6xl items-center justify-center px-4">
         <Spinner className="h-8 w-8" />
       </div>
     );
   }
 
+  if (!isAdmin()) {
+    return (
+      <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 px-4 py-16 text-center">
+        <h1 className="text-2xl font-semibold">Admin access required</h1>
+        <p className="text-sm text-secondary">You do not have permission to view the dashboard.</p>
+        <Button asChild>
+          <Link href="/products">Back to products</Link>
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Admin dashboard</h1>
-        <p className="text-sm text-secondary">
-          Overview of key metrics across the platform.
-        </p>
+    <div className="mx-auto w-full max-w-6xl px-4 py-8">
+      <div className="mb-6">
+        <h1 className="text-3xl font-semibold">Admin dashboard</h1>
+        <p className="mt-1 text-sm text-secondary">Quick overview of platform activity.</p>
       </div>
 
-      {error && (
-        <div className="rounded-lg border border-error/30 bg-error/5 p-4 text-sm text-error">
+      {loading ? (
+        <div className="flex min-h-[200px] items-center justify-center">
+          <Spinner className="h-8 w-8" />
+        </div>
+      ) : error ? (
+        <div className="rounded-md border border-error/30 bg-red-50 p-4 text-sm text-error" role="alert">
           {error}
         </div>
-      )}
+      ) : !data ? (
+        <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-secondary">
+          No metrics available.
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <h2 className="text-sm font-medium text-secondary">Total users</h2>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-semibold">{data.totalUsers}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <h2 className="text-sm font-medium text-secondary">Total products</h2>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-semibold">{data.totalProducts}</p>
+              </CardContent>
+            </Card>
+          </div>
 
-      {!error && stats && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <h3 className="text-lg font-semibold">Total users</h3>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{stats.totalUsers}</p>
-              <p className="text-sm text-secondary">Registered accounts</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <h3 className="text-lg font-semibold">Total products</h3>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{stats.totalProducts}</p>
-              <p className="text-sm text-secondary">Active listings</p>
-            </CardContent>
-          </Card>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <h2 className="text-base font-semibold">Recent products</h2>
+              </CardHeader>
+              <CardContent>
+                {(data.recentProducts?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-secondary">No recent products.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {data.recentProducts?.map(product => (
+                      <li key={product.id} className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">{product.name}</p>
+                          <p className="text-xs text-secondary">
+                            Added {product.createdAt ? new Date(product.createdAt).toLocaleDateString() : 'N/A'}
+                          </p>
+                        </div>
+                        <Badge variant="secondary">${product.price.toFixed(2)}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <h2 className="text-base font-semibold">Recent users</h2>
+              </CardHeader>
+              <CardContent>
+                {(data.recentUsers?.length ?? 0) === 0 ? (
+                  <p className="text-sm text-secondary">No recent users.</p>
+                ) : (
+                  <ul className="space-y-3">
+                    {data.recentUsers?.map(user => (
+                      <li key={user.id} className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium">{user.name}</p>
+                          <p className="text-xs text-secondary">{user.email}</p>
+                        </div>
+                        <Badge variant={user.role === 'admin' ? 'success' : 'default'}>
+                          {user.role}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
     </div>

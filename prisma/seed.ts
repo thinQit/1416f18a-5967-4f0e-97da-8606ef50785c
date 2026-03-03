@@ -1,11 +1,11 @@
 import { PrismaClient } from '@prisma/client';
-import { hashPassword } from '../src/lib/auth';
+import bcrypt from 'bcryptjs';
 
 const db = new PrismaClient();
 
 async function main() {
-  const adminPassword = await hashPassword('AdminPass123');
-  const userPassword = await hashPassword('UserPass123');
+  const adminPassword = await bcrypt.hash('Admin123!', 10);
+  const userPassword = await bcrypt.hash('User123!', 10);
 
   const admin = await db.user.create({
     data: {
@@ -16,63 +16,61 @@ async function main() {
     }
   });
 
-  await db.user.create({
+  const user = await db.user.create({
     data: {
-      name: 'Jordan Lee',
-      email: 'jordan@example.com',
+      name: 'Jamie Customer',
+      email: 'user@example.com',
       passwordHash: userPassword,
       role: 'user'
     }
   });
 
-  const products = [
-    {
-      title: 'Wireless Headphones',
+  await db.product.create({
+    data: {
+      name: 'Wireless Headphones',
       description: 'Noise-cancelling over-ear headphones with 30-hour battery life.',
       price: 199.99,
-      inventory: 12,
-      imageUrl: 'https://images.unsplash.com/photo-1518442708563-e1ae3cf6b74a'
-    },
-    {
-      title: 'Smart Fitness Watch',
-      description: 'Track workouts, sleep, and heart rate with a sleek wearable.',
-      price: 149.5,
-      inventory: 8,
-      imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30'
-    },
-    {
-      title: 'Portable Bluetooth Speaker',
-      description: 'Water-resistant speaker with deep bass and 12-hour playtime.',
-      price: 79.0,
-      inventory: 20,
-      imageUrl: 'https://images.unsplash.com/photo-1512446816042-444d641267d4'
-    },
-    {
-      title: 'Ergonomic Office Chair',
-      description: 'Adjustable lumbar support and breathable mesh for all-day comfort.',
-      price: 249.99,
-      inventory: 5,
-      imageUrl: 'https://images.unsplash.com/photo-1519710164239-da123dc03ef4'
-    },
-    {
-      title: 'Minimalist Desk Lamp',
-      description: 'LED lamp with adjustable brightness and a compact footprint.',
-      price: 45.25,
-      inventory: 18,
-      imageUrl: 'https://images.unsplash.com/photo-1507477338202-487281e6c27e'
+      sku: 'WH-1000XM',
+      stock: 45,
+      images: JSON.stringify([
+        'https://images.example.com/products/headphones-1.jpg',
+        'https://images.example.com/products/headphones-2.jpg'
+      ]),
+      createdBy: admin.id
     }
-  ];
+  });
 
-  for (const product of products) {
-    await db.product.create({ data: product });
-  }
+  await db.product.create({
+    data: {
+      name: 'Smart Home Hub',
+      description: 'Voice-controlled smart hub with Wi-Fi and Bluetooth connectivity.',
+      price: 129.5,
+      sku: 'HUB-200',
+      stock: 120,
+      images: JSON.stringify(['https://images.example.com/products/hub-1.jpg']),
+      createdBy: admin.id
+    }
+  });
 
-  console.log('Seeded admin:', admin.email);
+  await db.product.create({
+    data: {
+      name: 'Ergonomic Office Chair',
+      description: 'Adjustable chair with lumbar support for all-day comfort.',
+      price: 299.0,
+      sku: 'CHAIR-ERG',
+      stock: 25,
+      images: JSON.stringify([
+        'https://images.example.com/products/chair-1.jpg',
+        'https://images.example.com/products/chair-2.jpg'
+      ]),
+      createdBy: user.id
+    }
+  });
 }
 
 main()
-  .catch((error) => {
-    console.error(error);
+  .catch((error: unknown) => {
+    console.error('Seed error:', error);
     process.exit(1);
   })
   .finally(async () => {

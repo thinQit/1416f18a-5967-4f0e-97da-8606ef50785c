@@ -1,5 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt, { type Secret, type SignOptions } from 'jsonwebtoken';
+import { NextRequest } from 'next/server';
+import { db } from './db';
 
 const JWT_SECRET: Secret = process.env.JWT_SECRET || 'dev-secret-change-me';
 
@@ -24,4 +26,21 @@ export function getTokenFromHeader(authHeader: string | null): string | null {
   if (!authHeader) return null;
   const parts = authHeader.split(' ');
   return parts[0] === 'Bearer' && parts[1] ? parts[1] : null;
+}
+
+export async function getCurrentUser(request: NextRequest) {
+  const token = getTokenFromHeader(request.headers.get('authorization'));
+  if (!token) return null;
+
+  let payload: jwt.JwtPayload;
+  try {
+    payload = verifyToken(token);
+  } catch {
+    return null;
+  }
+
+  const sub = typeof payload.sub === 'string' ? payload.sub : null;
+  if (!sub) return null;
+
+  return db.user.findUnique({ where: { id: sub } });
 }

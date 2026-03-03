@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { hashPassword } from '@/lib/auth';
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -9,10 +8,9 @@ const querySchema = z.object({
 });
 
 const createSchema = z.object({
-  name: z.string().min(1),
-  email: z.string().email(),
-  password: z.string().min(6),
-  role: z.enum(['user', 'admin']).optional()
+  token: z.string().min(1),
+  userId: z.string().min(1),
+  expiresAt: z.coerce.date()
 });
 
 export async function GET(request: NextRequest) {
@@ -28,9 +26,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const [total, users] = await Promise.all([
-      db.user.count(),
-      db.user.findMany({
+    const [total, sessions] = await Promise.all([
+      db.authSession.count(),
+      db.authSession.findMany({
         orderBy: { createdAt: 'desc' },
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize
@@ -43,17 +41,11 @@ export async function GET(request: NextRequest) {
         total,
         page: query.page,
         pageSize: query.pageSize,
-        items: users.map(user => ({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          createdAt: user.createdAt
-        }))
+        items: sessions
       }
     });
   } catch {
-    return NextResponse.json({ success: false, error: 'Failed to fetch users' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to fetch sessions' }, { status: 500 });
   }
 }
 
@@ -67,32 +59,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const existing = await db.user.findUnique({ where: { email: payload.email } });
-    if (existing) {
-      return NextResponse.json({ success: false, error: 'Email already registered' }, { status: 409 });
-    }
-
-    const passwordHash = await hashPassword(payload.password);
-    const user = await db.user.create({
+    const session = await db.authSession.create({
       data: {
-        name: payload.name,
-        email: payload.email,
-        passwordHash,
-        role: payload.role ?? 'user'
+        token: payload.token,
+        userId: payload.userId,
+        expiresAt: payload.expiresAt
       }
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt
-      }
-    }, { status: 201 });
+    return NextResponse.json({ success: true, data: session }, { status: 201 });
   } catch {
-    return NextResponse.json({ success: false, error: 'Failed to create user' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to create session' }, { status: 500 });
   }
 }
