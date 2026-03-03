@@ -1,25 +1,17 @@
-import React from "react";
-import clsx from "clsx";
+import React from 'react';
 
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  asChild?: boolean;
+type CardProps = React.HTMLAttributes<HTMLDivElement>;
+
+type CardSectionProps = React.HTMLAttributes<HTMLDivElement>;
+
+export default function Card({ className = '', ...props }: CardProps) {
+  return <div className={`p-4 ${className}`} {...props} />;
 }
 
-export function Card({ className, ...props }: CardProps) {
-  return (
-    <div
-      className={clsx("rounded-lg border border-gray-200 bg-white shadow-sm", className)}
-      {...props}
-    />
-  );
+export function CardHeader({ className = '', ...props }: CardSectionProps) {
+  return <div className={`mb-2 ${className}`} {...props} />;
 }
 
-export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={clsx("border-b border-gray-100 p-4", className)} {...props} />;
+export function CardContent({ className = '', ...props }: CardSectionProps) {
+  return <div className={className} {...props} />;
 }
-
-export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={clsx("p-4", className)} {...props} />;
-}
-
-export default Card;

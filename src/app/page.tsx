@@ -1,51 +1,54 @@
-import Image from "next/image";
-import Button from "@/components/ui/Button";
+import Image from 'next/image';
+import Link from 'next/link';
+import Button from '@/components/ui/Button';
+import Card from '@/components/ui/Card';
 
 export default function HomePage() {
   return (
-    <main className="bg-white">
-      <section className="bg-gradient-to-br from-white via-white to-primary/10">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 md:grid-cols-2 md:py-28">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-primary">Productly</p>
-            <h1 className="mt-4 text-4xl font-bold text-slate-900 md:text-5xl">
-              Modern product management for fast-moving teams
-            </h1>
-            <p className="mt-5 text-lg text-slate-600">
-              Productly is a lightweight dashboard to register, authenticate, and manage product listings with pricing,
-              inventory, and images. Built for clarity, speed, and role-based access.
-            </p>
-            <div className="mt-8 flex flex-wrap gap-4">
-              <Button asChild size="lg">
-                <a href="/register">Get started</a>
-              </Button>
-              <Button asChild variant="outline" size="lg">
-                <a href="/products">View products</a>
-              </Button>
+    <div>
+      <section className="bg-white">
+        <div className="mx-auto grid max-w-6xl gap-12 px-6 py-16 lg:grid-cols-2 lg:items-center">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
+              ShopFlow Admin + Storefront Starter
             </div>
-            <div className="mt-8 grid grid-cols-3 gap-6 text-sm">
-              <div>
-                <p className="text-2xl font-bold text-slate-900">99.9%</p>
-                <p className="text-slate-500">API uptime</p>
+            <h1 className="text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+              Launch your product catalog and admin workflows in days, not weeks.
+            </h1>
+            <p className="text-lg text-slate-600">
+              ShopFlow is a TypeScript-first starter for authentication, product management, and a modern storefront UI. Create, edit,
+              and ship product experiences with secure JWT auth, a clean API, and a responsive frontend.
+            </p>
+            <div className="flex flex-wrap gap-4">
+              <Link href="/products">
+                <Button variant="primary" size="lg">
+                  Browse Products
+                </Button>
+              </Link>
+              <Link href="/dashboard">
+                <Button variant="outline" size="lg">
+                  Go to Dashboard
+                </Button>
+              </Link>
+            </div>
+            <div className="flex items-center gap-6 text-sm text-slate-500">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-success" />
+                JWT-secured APIs
               </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">20+</p>
-                <p className="text-slate-500">Fields tracked</p>
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-slate-900">RBAC</p>
-                <p className="text-slate-500">Built-in roles</p>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-primary" />
+                SQLite + Prisma
               </div>
             </div>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-lg">
+          <div className="relative">
             <Image
               src="/images/hero.jpg"
-              alt="Productly dashboard overview"
+              alt="ShopFlow storefront hero"
               width={1200}
               height={675}
-              className="h-full w-full object-cover"
-              priority
+              className="rounded-2xl border border-slate-200 object-cover shadow-sm"
             />
           </div>
         </div>
@@ -53,119 +56,102 @@ export default function HomePage() {
 
       <section className="bg-slate-50">
         <div className="mx-auto max-w-6xl px-6 py-16">
-          <div className="text-center">
-            <h2 className="text-3xl font-bold text-slate-900">Everything your product catalog needs</h2>
-            <p className="mt-3 text-slate-600">Manage products, inventory, and media with clean APIs and a friendly UI.</p>
-          </div>
-          <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                title: "JWT Authentication",
-                body: "Secure registration and login with access tokens and role-based access controls."
-              },
-              {
-                title: "Product CRUD",
-                body: "Create, update, and delete products with pricing, SKU, stock, and status."
-              },
-              {
-                title: "Search & Pagination",
-                body: "Fast product discovery with filtering, sorting, and paginated endpoints."
-              },
-              {
-                title: "Image Management",
-                body: "Upload and manage multiple product images with optimized URLs."
-              }
-            ].map((feature) => (
-              <div key={feature.title} className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-lg font-semibold text-slate-900">{feature.title}</h3>
-                <p className="mt-3 text-sm text-slate-600">{feature.body}</p>
+          <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+            <div className="space-y-6">
+              <h2 className="text-3xl font-bold text-slate-900">Everything you need to run a product catalog</h2>
+              <p className="text-slate-600">
+                ShopFlow stitches together authentication, product APIs, and UI screens so you can focus on your business logic.
+              </p>
+              <div className="grid gap-6 md:grid-cols-2">
+                {[
+                  { title: 'Secure Auth', text: 'JWT access tokens, bcrypt hashing, and user profile endpoints.' },
+                  { title: 'Admin Tools', text: 'Role-aware product management with create/edit/delete flows.' },
+                  { title: 'Search + Pagination', text: 'Built-in query support for fast, responsive storefronts.' },
+                  { title: 'Developer Friendly', text: 'TypeScript types, Zod validation, and Prisma ORM.' }
+                ].map((feature) => (
+                  <Card key={feature.title} className="p-6">
+                    <h3 className="text-lg font-semibold text-slate-900">{feature.title}</h3>
+                    <p className="mt-3 text-sm text-slate-600">{feature.text}</p>
+                  </Card>
+                ))}
               </div>
-            ))}
+            </div>
+            <div className="relative">
+              <Image
+                src="/images/feature.jpg"
+                alt="ShopFlow product management"
+                width={1200}
+                height={675}
+                className="rounded-2xl border border-slate-200 object-cover shadow-sm"
+              />
+            </div>
           </div>
         </div>
       </section>
 
       <section className="bg-white">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-2">
-          <div>
-            <Image
-              src="/images/feature.jpg"
-              alt="Product insights overview"
-              width={1200}
-              height={675}
-              className="rounded-2xl object-cover shadow-lg"
-            />
-          </div>
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-widest text-primary">Unified visibility</p>
-            <h2 className="mt-4 text-3xl font-bold text-slate-900">Track pricing, inventory, and images in one view</h2>
-            <p className="mt-4 text-slate-600">
-              Productly keeps your catalog organized with streamlined forms, real-time visibility, and role-based actions.
-              Empower product owners and admins to ship updates confidently.
-            </p>
-            <div className="mt-6 grid gap-4 text-sm text-slate-600">
-              <div className="flex items-start gap-3">
-                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                <p>Structured product data with SKU, stock, and active status.</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                <p>Image uploads and URL tracking for every listing.</p>
-              </div>
-              <div className="flex items-start gap-3">
-                <span className="mt-1 h-2 w-2 rounded-full bg-primary" />
-                <p>API-first integrations for storefronts and analytics.</p>
-              </div>
-            </div>
+        <div className="mx-auto max-w-6xl px-6 py-16">
+          <div className="grid gap-6 md:grid-cols-3">
+            {[
+              { value: '200ms', label: 'Target API response time' },
+              { value: 'WCAG 2.1', label: 'Accessibility compliance' },
+              { value: '24/7', label: 'Health monitoring ready' }
+            ].map((stat) => (
+              <Card key={stat.label} className="p-6 text-center">
+                <p className="text-3xl font-bold text-primary">{stat.value}</p>
+                <p className="mt-2 text-sm text-slate-600">{stat.label}</p>
+              </Card>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-primary text-white">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-2">
-          <div>
-            <h2 className="text-3xl font-bold">Start managing products today</h2>
-            <p className="mt-3 text-sm text-white/80">
-              Create your account, add products, and keep inventory aligned across your team.
+      <section className="bg-slate-900 text-white">
+        <div className="mx-auto grid max-w-6xl gap-8 px-6 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+          <div className="space-y-4">
+            <h2 className="text-3xl font-bold">Ready to build your storefront with ShopFlow?</h2>
+            <p className="max-w-2xl text-slate-200">
+              Start with a complete auth + product management foundation and customize the experience for your team and customers.
             </p>
-            <Button asChild variant="secondary" className="mt-6 bg-white text-primary hover:bg-slate-100">
-              <a href="/register">Create an account</a>
-            </Button>
+            <div className="flex flex-wrap gap-4">
+              <Link href="/register">
+                <Button variant="primary" size="lg">
+                  Create an Account
+                </Button>
+              </Link>
+              <Link href="/products/new">
+                <Button variant="outline" size="lg">
+                  Add a Product
+                </Button>
+              </Link>
+            </div>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-white/20">
+          <div className="relative">
             <Image
               src="/images/cta.jpg"
-              alt="Team collaborating on product planning"
+              alt="ShopFlow call to action"
               width={1200}
               height={675}
-              className="h-full w-full object-cover"
+              className="rounded-2xl border border-white/10 object-cover shadow-lg"
             />
           </div>
         </div>
       </section>
 
-      <footer className="bg-slate-900">
-        <div className="mx-auto max-w-6xl px-6 py-10 text-sm text-slate-400">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="font-semibold text-white">Productly</p>
-              <p className="mt-2 text-slate-400">Lightweight product management for modern teams.</p>
-            </div>
-            <div className="flex gap-6">
-              <a className="hover:text-white" href="/products">
-                Products
-              </a>
-              <a className="hover:text-white" href="/login">
-                Login
-              </a>
-              <a className="hover:text-white" href="/register">
-                Register
-              </a>
-            </div>
+      <footer className="border-t bg-white">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-10 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-lg font-semibold text-slate-900">ShopFlow</p>
+            <p className="text-sm text-slate-500">Admin + storefront starter for modern product teams.</p>
           </div>
-          <p className="mt-6 text-xs text-slate-500">© 2024 Productly. All rights reserved.</p>
+          <div className="flex gap-6 text-sm text-slate-600">
+            <Link href="/products">Products</Link>
+            <Link href="/dashboard">Dashboard</Link>
+            <Link href="/login">Login</Link>
+            <Link href="/register">Register</Link>
+          </div>
         </div>
       </footer>
-    </main>
+    </div>
   );
 }

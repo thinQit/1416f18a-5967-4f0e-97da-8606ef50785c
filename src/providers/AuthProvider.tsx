@@ -1,75 +1,73 @@
-"use client";
+'use client';
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-
-export interface AuthUser {
-  id: string;
-  name: string;
-  email: string;
-}
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { api } from '@/lib/api';
+import { User } from '@/types';
 
 interface AuthContextValue {
-  user: AuthUser | null;
-  token: string | null;
-  loading: boolean;
-  login: (user: AuthUser, token?: string | null) => void;
+  user: User | null;
+  isAuthenticated: boolean;
+  login: (token: string, user: User) => void;
   logout: () => void;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = typeof window !== "undefined" ? window.localStorage.getItem("auth:user") : null;
-    const storedToken = typeof window !== "undefined" ? window.localStorage.getItem("auth:token") : null;
-    if (storedUser) {
-      setUser(JSON.parse(storedUser) as AuthUser);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('shopflow_token') : null;
+    if (!token) {
+      setLoading(false);
+      return;
     }
-    if (storedToken) {
-      setToken(storedToken);
-    }
-    setLoading(false);
+
+    api
+      .get<User>('/api/users/me', token)
+      .then((data) => {
+        if (data?.id) {
+          setUser(data);
+        }
+      })
+      .catch((_error) => {
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
-  const login = (nextUser: AuthUser, nextToken?: string | null) => {
-    setUser(nextUser);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("auth:user", JSON.stringify(nextUser));
-    }
-    if (typeof nextToken !== "undefined") {
-      setToken(nextToken ?? null);
-      if (typeof window !== "undefined") {
-        if (nextToken) {
-          window.localStorage.setItem("auth:token", nextToken);
-        } else {
-          window.localStorage.removeItem("auth:token");
-        }
-      }
-    }
+  const login = (token: string, userProfile: User) => {
+    localStorage.setItem('shopflow_token', token);
+    setUser(userProfile);
   };
 
   const logout = () => {
+    localStorage.removeItem('shopflow_token');
     setUser(null);
-    setToken(null);
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem("auth:user");
-      window.localStorage.removeItem("auth:token");
-    }
   };
 
-  const value = useMemo(() => ({ user, token, loading, login, logout }), [user, token, loading]);
+  const value = useMemo(
+    () => ({
+      user,
+      isAuthenticated: Boolean(user),
+      login,
+      logout,
+      loading
+    }),
+    [user, loading]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within AuthProvider");
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
   }
-  return ctx;
+  return context;
 }
+
+export default AuthProvider;

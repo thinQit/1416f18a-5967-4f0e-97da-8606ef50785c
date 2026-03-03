@@ -2,156 +2,67 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Card, CardContent, CardHeader } from '@/components/ui/Card';
-import Badge from '@/components/ui/Badge';
-import { Spinner } from '@/components/ui/Spinner';
-import { Button } from '@/components/ui/Button';
-import { useAuth } from '@/providers/AuthProvider';
-
-interface DashboardResponse {
-  totalUsers: number;
-  totalProducts: number;
-  recentProducts: Array<{
-    id: string;
-    name: string;
-    price: number;
-    createdAt?: string;
-  }>;
-  recentUsers: Array<{
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-    createdAt?: string;
-  }>;
-}
+import Card, { CardContent } from '@/components/ui/Card';
+import Button from '@/components/ui/Button';
+import Spinner from '@/components/ui/Spinner';
+import { api } from '@/lib/api';
+import { PaginatedResponse, Product } from '@/types';
 
 export default function DashboardPage() {
-  const { isAdmin, loading: authLoading } = useAuth();
-  const [data, setData] = useState<DashboardResponse | null>(null);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchMetrics = async () => {
-      if (!isAdmin) {
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      setError(null);
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          setError('Missing authentication token.');
-          setLoading(false);
-          return;
-        }
-
-        const response = await fetch('/api/dashboard/metrics', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({ error: 'Unable to load metrics.' }));
-          setError(err.error || 'Unable to load metrics.');
-          setData(null);
-          return;
-        }
-
-        const payload = (await response.json()) as DashboardResponse;
-        setData(payload);
-      } catch (_error) {
-        setError('Unable to load metrics.');
-        setData(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (!authLoading) {
-      void fetchMetrics();
-    }
-  }, [authLoading, isAdmin]);
-
-  if (!isAdmin && !authLoading) {
-    return (
-      <Card>
-        <CardContent className="space-y-3">
-          <h1 className="text-xl font-semibold">Admin access required</h1>
-          <p className="text-sm text-muted-foreground">You need admin permissions to view this dashboard.</p>
-          <Link href="/products" className="text-sm font-medium text-primary hover:underline">
-            Back to products
-          </Link>
-        </CardContent>
-      </Card>
-    );
-  }
+    api
+      .get<PaginatedResponse<Product>>('/api/products?page=1&limit=1')
+      .then((data) => setTotal(data?.meta?.total ?? 0))
+      .catch((err) => setError(err instanceof Error ? err.message : 'Unable to load dashboard'))
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
-    <main className="min-h-screen bg-background px-6 py-10">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Overview of your store activity.</p>
-          </div>
-          <Button asChild>
-            <Link href="/products/new">Add product</Link>
-          </Button>
+    <div className="bg-slate-50 py-12">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="mb-8 flex flex-col gap-3">
+          <h1 className="text-3xl font-bold text-slate-900">Admin Dashboard</h1>
+          <p className="text-slate-600">Overview of your ShopFlow catalog and quick actions.</p>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Spinner />
-          </div>
-        ) : error ? (
-          <Card>
-            <CardContent className="py-6 text-center text-sm text-destructive">{error}</CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2">
+        {loading && <Spinner label="Loading dashboard" />}
+
+        {error && <p className="text-sm text-error">{error}</p>}
+
+        {!loading && !error && (
+          <div className="grid gap-6 md:grid-cols-3">
             <Card>
-              <CardHeader>
-                <h2 className="text-lg font-semibold">Total products</h2>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold">{data?.totalProducts ?? 0}</p>
+              <CardContent className="space-y-2 p-6">
+                <p className="text-sm text-slate-500">Total Products</p>
+                <p className="text-3xl font-bold text-slate-900">{total}</p>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader>
-                <h2 className="text-lg font-semibold">Total users</h2>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold">{data?.totalUsers ?? 0}</p>
+              <CardContent className="space-y-2 p-6">
+                <p className="text-sm text-slate-500">Active Listings</p>
+                <p className="text-3xl font-bold text-slate-900">{total}</p>
               </CardContent>
             </Card>
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <h2 className="text-lg font-semibold">Recent users</h2>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {(data?.recentUsers ?? []).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No recent users yet.</p>
-                ) : (
-                  data?.recentUsers?.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium">{user.name}</p>
-                        <p className="text-xs text-muted-foreground">{user.email}</p>
-                      </div>
-                      <Badge>{user.role}</Badge>
-                    </div>
-                  ))
-                )}
+            <Card>
+              <CardContent className="space-y-2 p-6">
+                <p className="text-sm text-slate-500">Quick Actions</p>
+                <div className="flex flex-col gap-2">
+                  <Link href="/products/new">
+                    <Button variant="primary">Add Product</Button>
+                  </Link>
+                  <Link href="/products">
+                    <Button variant="outline">View Storefront</Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           </div>
         )}
       </div>
-    </main>
+    </div>
   );
 }

@@ -1,115 +1,118 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { db } from "@/lib/db";
-import { getTokenFromHeader, verifyToken, hashPassword } from "@/lib/auth";
-
-const idSchema = z.string().uuid();
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import db from '@/lib/db';
+import { hashPassword } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/server-auth';
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().optional(),
-  password: z.string().min(6).optional(),
+  password: z.string().min(8).optional(),
   role: z.string().optional()
 });
 
-async function getAuthUser(request: NextRequest) {
-  const token = getTokenFromHeader(request.headers.get("authorization"));
-  if (!token) return null;
-  try {
-    const payload = verifyToken(token);
-    const userId = typeof payload.userId === "string" ? payload.userId : null;
-    if (!userId) return null;
-    return await db.user.findUnique({ where: { id: userId } });
-  } catch (_error) {
-    return null;
-  }
-}
-
-function sanitizeUser(user: { passwordHash: string } & Record<string, unknown>) {
-  const { passwordHash: _passwordHash, ...safeUser } = user;
-  return safeUser;
-}
+const mapUser = (user: { id: string; name: string | null; email: string; role: string; createdAt: Date; updatedAt: Date }) => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  createdAt: user.createdAt.toISOString(),
+  updatedAt: user.updatedAt.toISOString()
+});
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = idSchema.parse(params.id);
-    const authUser = await getAuthUser(request);
-    if (!authUser) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const current = await getCurrentUser(request);
+    if (!current) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (authUser.role !== "admin" && authUser.id !== id) {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    const isSelf = current.user.id === params.id;
+    if (!isSelf && current.user.role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const user = await db.user.findUnique({ where: { id } });
+    const user = await db.user.findUnique({ where: { id: params.id } });
     if (!user) {
-      return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, data: sanitizeUser(user) });
-  } catch (error: unknown) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: "Invalid user id" }, { status: 400 });
-    }
-    return NextResponse.json({ success: false, error: "Failed to fetch user" }, { status: 500 });
+    return NextResponse.json({ success: true, data: mapUser(user) });
+  } catch (_error) {
+    return NextResponse.json({ success: false, error: 'Failed to load user' }, { status: 500 });
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = idSchema.parse(params.id);
-    const authUser = await getAuthUser(request);
-    if (!authUser) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const current = await getCurrentUser(request);
+    if (!current) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (authUser.role !== "admin" && authUser.id !== id) {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    const isSelf = current.user.id === params.id;
+    const isAdmin = current.user.role === 'admin';
+    if (!isSelf && !isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const body = updateSchema.parse(await request.json());
-    if (body.role && authUser.role !== "admin") {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    const body = await request.json();
+    const data = updateSchema.parse(body);
+
+    if (data.role && !isAdmin) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const data: { name?: string; email?: string; passwordHash?: string; role?: string } = {
-      name: body.name,
-      email: body.email,
-      role: body.role === "admin" ? "admin" : body.role === "user" ? "user" : undefined
-    };
-
-    if (body.password) {
-      data.passwordHash = await hashPassword(body.password);
+    if (data.email) {
+      const existing = await db.user.findUnique({ where: { email: data.email } });
+      if (existing && existing.id !== params.id) {
+        return NextResponse.json({ success: false, error: 'Email already in use' }, { status: 400 });
+      }
     }
 
-    const updated = await db.user.update({ where: { id }, data });
-    return NextResponse.json({ success: true, data: sanitizeUser(updated) });
+    const updateData: {
+      name?: string | null;
+      email?: string;
+      passwordHash?: string;
+      role?: string;
+    } = {};
+
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.email !== undefined) updateData.email = data.email;
+    if (data.role !== undefined) updateData.role = data.role;
+    if (data.password) updateData.passwordHash = await hashPassword(data.password);
+
+    const user = await db.user.update({
+      where: { id: params.id },
+      data: updateData
+    });
+
+    return NextResponse.json({ success: true, data: mapUser(user) });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.errors[0]?.message ?? "Invalid request" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Validation error', details: error.flatten() },
+        { status: 400 }
+      );
     }
-    return NextResponse.json({ success: false, error: "Failed to update user" }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Unable to update user' }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const id = idSchema.parse(params.id);
-    const authUser = await getAuthUser(request);
-    if (!authUser) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const current = await getCurrentUser(request);
+    if (!current) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (authUser.role !== "admin") {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    if (current.user.role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    await db.user.delete({ where: { id } });
-    return NextResponse.json({ success: true, data: { success: true } });
-  } catch (error: unknown) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: "Invalid user id" }, { status: 400 });
-    }
-    return NextResponse.json({ success: false, error: "Failed to delete user" }, { status: 500 });
+    await db.user.delete({ where: { id: params.id } });
+
+    return NextResponse.json({ success: true, data: { message: 'User deleted' } });
+  } catch (_error) {
+    return NextResponse.json({ success: false, error: 'Unable to delete user' }, { status: 500 });
   }
 }

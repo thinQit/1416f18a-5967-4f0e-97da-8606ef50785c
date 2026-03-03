@@ -1,45 +1,83 @@
-export type ApiOptions = Omit<RequestInit, "body"> & {
-  body?: unknown;
+export type ApiResponse<T> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+  details?: unknown;
 };
 
-async function request<T>(url: string, options: ApiOptions = {}): Promise<T> {
-  const { body, headers, ...rest } = options;
-  const response = await fetch(url, {
-    ...rest,
-    headers: {
-      "Content-Type": "application/json",
-      ...(headers || {})
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined
-  });
+async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
+  const text = await response.text();
+  const json = text ? (JSON.parse(text) as ApiResponse<T>) : undefined;
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `Request failed with ${response.status}`);
+    return (
+      json ?? {
+        success: false,
+        error: response.statusText || 'Request failed'
+      }
+    );
   }
 
-  return (await response.json()) as T;
+  return (
+    json ?? {
+      success: true
+    }
+  );
 }
 
-export function apiGet<T>(url: string, options?: ApiOptions) {
-  return request<T>(url, { ...options, method: "GET" });
+export async function apiGet<T>(url: string, init?: RequestInit): Promise<ApiResponse<T>> {
+  const response = await fetch(url, {
+    ...init,
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {})
+    }
+  });
+  return handleResponse<T>(response);
 }
 
-export function apiPost<T>(url: string, body?: unknown, options?: ApiOptions) {
-  return request<T>(url, { ...options, method: "POST", body });
+export async function apiPost<T>(url: string, body?: unknown, init?: RequestInit): Promise<ApiResponse<T>> {
+  const response = await fetch(url, {
+    ...init,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {})
+    },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  return handleResponse<T>(response);
 }
 
-export function apiPut<T>(url: string, body?: unknown, options?: ApiOptions) {
-  return request<T>(url, { ...options, method: "PUT", body });
+export async function apiPatch<T>(url: string, body?: unknown, init?: RequestInit): Promise<ApiResponse<T>> {
+  const response = await fetch(url, {
+    ...init,
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {})
+    },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  return handleResponse<T>(response);
 }
 
-export function apiDelete<T>(url: string, options?: ApiOptions) {
-  return request<T>(url, { ...options, method: "DELETE" });
+export async function apiDelete<T>(url: string, init?: RequestInit): Promise<ApiResponse<T>> {
+  const response = await fetch(url, {
+    ...init,
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {})
+    }
+  });
+  return handleResponse<T>(response);
 }
 
 export const api = {
   get: apiGet,
   post: apiPost,
-  put: apiPut,
+  patch: apiPatch,
   delete: apiDelete
 };

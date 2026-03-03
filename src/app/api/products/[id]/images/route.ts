@@ -1,72 +1,54 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { db } from "@/lib/db";
-import { getTokenFromHeader, verifyToken } from "@/lib/auth";
+import { NextRequest, NextResponse } from 'next/server';
+import db from '@/lib/db';
+import { getCurrentUser } from '@/lib/server-auth';
 
-type FileLike = File | string;
-
-const idSchema = z.string().uuid();
-
-function parseImages(images: string | null): string[] {
-  if (!images) return [];
+const parseImages = (value: string | null): string[] => {
+  if (!value) return [];
   try {
-    const parsed = JSON.parse(images);
-    if (Array.isArray(parsed)) {
-      return parsed.filter((item) => typeof item === "string");
-    }
-    return [];
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') ? parsed : [];
   } catch (_error) {
     return [];
   }
-}
+};
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
-  const token = getTokenFromHeader(request.headers.get("authorization"));
-  if (!token) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const id = idSchema.parse(params.id);
-    const payload = verifyToken(token);
-    const userId = typeof payload.userId === "string" ? payload.userId : null;
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    const current = await getCurrentUser(request);
+    if (!current) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (current.user.role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const product = await db.product.findUnique({ where: { id } });
+    const product = await db.product.findUnique({ where: { id: params.id } });
     if (!product) {
-      return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
-    }
-
-    if (product.ownerId !== userId && payload.role !== "admin") {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+      return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
     }
 
     const formData = await request.formData();
-    const files = formData.getAll("files") as FileLike[];
+    const files = formData.getAll('images');
     if (files.length === 0) {
-      return NextResponse.json({ success: false, error: "No files uploaded" }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'No images provided' }, { status: 400 });
     }
 
+    const existingImages = parseImages(product.images);
     const newImages = files.map((file, index) => {
-      const name = typeof file === "string" ? file : file.name;
-      return `/uploads/${id}/${Date.now()}-${index}-${name}`;
+      const filename = typeof file === 'string' ? file : file.name;
+      return `/uploads/${params.id}-${index}-${filename}`;
     });
 
-    const existing = parseImages(product.images);
-    const updatedImages = [...existing, ...newImages];
-
-    await db.product.update({
-      where: { id },
-      data: { images: JSON.stringify(updatedImages) }
+    const updated = await db.product.update({
+      where: { id: params.id },
+      data: { images: JSON.stringify([...existingImages, ...newImages]) }
     });
 
-    return NextResponse.json({ success: true, data: { images: updatedImages } });
-  } catch (error: unknown) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: "Invalid product id" }, { status: 400 });
-    }
-    return NextResponse.json({ success: false, error: "Failed to upload images" }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      data: { images: parseImages(updated.images) }
+    });
+  } catch (_error) {
+    return NextResponse.json({ success: false, error: 'Unable to upload images' }, { status: 500 });
   }
 }

@@ -1,28 +1,28 @@
-# Productly
+# ShopFlow
 
-Productly is a lightweight product management dashboard for teams to register/login, create and manage product listings with pricing, inventory, and images. It ships with REST APIs, admin UI, and role-based access control.
+ShopFlow is a TypeScript-based admin + storefront starter for managing users and products. It includes registration/login with JWT auth, product CRUD APIs, a responsive storefront UI, and an admin dashboard.
 
 ## Features
-- JWT authentication with registration and login
-- Product CRUD with pricing, inventory, images, and ownership checks
-- Searchable, paginated product listings
-- Role-based access (admin vs user)
+- JWT-based authentication with bcrypt password hashing
+- Product CRUD with pagination and search
+- Admin dashboard with catalog insights
+- Responsive UI built with Next.js 14 + Tailwind CSS
+- Prisma ORM with SQLite for local development
 
 ## Setup
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Configure environment:
+1. Copy environment variables:
    ```bash
    cp .env.example .env
    ```
-3. Run Prisma migrations and seed:
+2. Install dependencies:
    ```bash
-   npx prisma migrate dev --name init
-   npx prisma db seed
+   npm install
    ```
-4. Start the dev server:
+3. Generate Prisma client:
+   ```bash
+   npx prisma generate
+   ```
+4. Run the app:
    ```bash
    npm run dev
    ```
@@ -31,16 +31,16 @@ Productly is a lightweight product management dashboard for teams to register/lo
 - `GET /api/health`
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `POST /api/auth/logout`
 - `GET /api/auth/me`
+- `GET /api/users/me`
 - `GET /api/products`
-- `POST /api/products`
 - `GET /api/products/:id`
-- `PUT /api/products/:id`
-- `DELETE /api/products/:id`
-- `POST /api/products/:id/images`
+- `POST /api/products` (auth required, admin role)
+- `PATCH /api/products/:id` (auth required, admin role)
+- `DELETE /api/products/:id` (auth required, admin role)
+- `POST /api/products/:id/images` (auth required, admin role)
 
-## Scripts
-- `npm run dev` - Start Next.js dev server
-- `npm run build` - Generate Prisma client and build
-- `npm run lint` - Run ESLint
-- `npm run test` - Run Jest tests
+## Notes
+- Product management routes enforce an `admin` role. Update a user role directly in the database for testing.
+- Store JWT tokens in `localStorage` under `shopflow_token`.

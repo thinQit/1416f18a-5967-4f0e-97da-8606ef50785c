@@ -1,45 +1,61 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { db } from "@/lib/db";
-import { hashPassword } from "@/lib/auth";
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import db from '@/lib/db';
+import { hashPassword, signToken } from '@/lib/auth';
 
-const registerSchema = z.object({
+const schema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
-  password: z.string().min(6)
+  password: z.string().min(8)
 });
 
 export async function POST(request: NextRequest) {
   try {
-    const body = registerSchema.parse(await request.json());
-    const existing = await db.user.findUnique({ where: { email: body.email } });
+    const body = await request.json();
+    const data = schema.parse(body);
+
+    const existing = await db.user.findUnique({ where: { email: data.email } });
     if (existing) {
-      return NextResponse.json({ success: false, error: "Email already registered" }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Email already registered' }, { status: 400 });
     }
 
-    const passwordHash = await hashPassword(body.password);
+    const passwordHash = await hashPassword(data.password);
     const user = await db.user.create({
       data: {
-        name: body.name,
-        email: body.email,
-        passwordHash,
-        role: "user"
+        name: data.name,
+        email: data.email,
+        passwordHash
       }
     });
 
-    return NextResponse.json({
-      success: true,
+    const token = signToken({ userId: user.id, role: user.role });
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await db.authSession.create({
       data: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        createdAt: user.createdAt
+        token,
+        expiresAt
       }
     });
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          token,
+          expiresAt: expiresAt.toISOString(),
+          user: { id: user.id, name: user.name, email: user.email, role: user.role }
+        }
+      },
+      { status: 201 }
+    );
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.errors[0]?.message ?? "Invalid request" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: 'Validation error', details: error.flatten() },
+        { status: 400 }
+      );
     }
-    return NextResponse.json({ success: false, error: "Failed to register" }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Registration failed' }, { status: 500 });
   }
 }

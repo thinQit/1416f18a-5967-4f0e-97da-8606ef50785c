@@ -1,23 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import db from '@/lib/db';
-import { hashPassword } from '@/lib/auth';
 import { getCurrentUser } from '@/lib/server-auth';
 
 const createSchema = z.object({
-  name: z.string().min(2).optional(),
-  email: z.string().email(),
-  password: z.string().min(8),
-  role: z.string().optional()
-});
-
-const mapUser = (user: { id: string; name: string | null; email: string; role: string; createdAt: Date; updatedAt: Date }) => ({
-  id: user.id,
-  name: user.name,
-  email: user.email,
-  role: user.role,
-  createdAt: user.createdAt.toISOString(),
-  updatedAt: user.updatedAt.toISOString()
+  token: z.string().min(10),
+  expiresAt: z.string().datetime()
 });
 
 export async function GET(request: NextRequest) {
@@ -36,24 +23,15 @@ export async function GET(request: NextRequest) {
     const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
     const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 50) : 10;
 
-    const [users, total] = await Promise.all([
-      db.user.findMany({
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { createdAt: 'desc' }
-      }),
-      db.user.count()
-    ]);
-
     return NextResponse.json({
       success: true,
       data: {
-        items: users.map(mapUser),
-        meta: { page, limit, total }
+        items: [],
+        meta: { page, limit, total: 0 }
       }
     });
   } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Failed to load users' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to load sessions' }, { status: 500 });
   }
 }
 
@@ -68,29 +46,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const data = createSchema.parse(body);
-
-    const existing = await db.user.findUnique({ where: { email: data.email } });
-    if (existing) {
-      return NextResponse.json({ success: false, error: 'Email already registered' }, { status: 400 });
-    }
-
-    const passwordHash = await hashPassword(data.password);
-    const user = await db.user.create({
-      data: {
-        name: data.name,
-        email: data.email,
-        passwordHash,
-        role: data.role || 'user'
-      }
-    });
+    createSchema.parse(body);
 
     return NextResponse.json(
-      {
-        success: true,
-        data: mapUser(user)
-      },
-      { status: 201 }
+      { success: false, error: 'Session storage not configured' },
+      { status: 501 }
     );
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
@@ -99,6 +59,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    return NextResponse.json({ success: false, error: 'Unable to create user' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Unable to create session' }, { status: 500 });
   }
 }

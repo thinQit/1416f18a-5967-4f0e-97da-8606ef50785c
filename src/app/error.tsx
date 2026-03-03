@@ -1,18 +1,16 @@
 'use client';
 
-import { useEffect } from "react";
+import Link from 'next/link';
+import Button from '@/components/ui/Button';
 
-export default function ErrorPage({ error }: { error: Error & { digest?: string } }) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
-
+export default function GlobalError({ error }: { error: Error & { digest?: string } }) {
   return (
-    <main className="flex min-h-[60vh] items-center justify-center px-6 py-16">
-      <div className="max-w-md text-center">
-        <h1 className="text-3xl font-bold text-slate-900">Something went wrong</h1>
-        <p className="mt-3 text-sm text-slate-600">We encountered an unexpected error. Please try again.</p>
-      </div>
-    </main>
+    <div className="flex min-h-[70vh] flex-col items-center justify-center gap-4 px-6 text-center">
+      <h2 className="text-2xl font-semibold">Something went wrong</h2>
+      <p className="text-sm text-slate-600">{error.message}</p>
+      <Link href="/">
+        <Button variant="primary">Back to Home</Button>
+      </Link>
+    </div>
   );
 }

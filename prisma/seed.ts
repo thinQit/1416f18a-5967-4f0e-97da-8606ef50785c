@@ -1,77 +1,67 @@
-import { PrismaClient } from "@prisma/client";
-import { hashPassword } from "../src/lib/auth";
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
-const prisma = new PrismaClient();
+const db = new PrismaClient();
 
 async function main() {
-  const adminPassword = await hashPassword("admin123");
-  const userPassword = await hashPassword("user1234");
+  const adminPassword = await bcrypt.hash('admin1234', 10);
+  const userPassword = await bcrypt.hash('user1234', 10);
 
-  const admin = await prisma.user.upsert({
-    where: { email: "admin@productly.dev" },
-    update: {},
-    create: {
-      name: "Productly Admin",
-      email: "admin@productly.dev",
+  await db.user.create({
+    data: {
+      name: 'Admin User',
+      email: 'admin@shopflow.dev',
       passwordHash: adminPassword,
-      role: "admin"
+      role: 'admin'
     }
   });
 
-  const user = await prisma.user.upsert({
-    where: { email: "user@productly.dev" },
-    update: {},
-    create: {
-      name: "Productly User",
-      email: "user@productly.dev",
+  await db.user.create({
+    data: {
+      name: 'Jamie Customer',
+      email: 'user@shopflow.dev',
       passwordHash: userPassword,
-      role: "user"
+      role: 'user'
     }
   });
 
   const products = [
     {
-      name: "Nimbus Desk Lamp",
-      description: "Minimalist LED desk lamp with adjustable brightness.",
-      price: 79.99,
-      sku: "NDL-100",
-      stock: 32,
-      active: true,
-      ownerId: admin.id,
-      images: JSON.stringify(["/images/hero.jpg"])
+      name: 'Flowstate Sneakers',
+      description: 'Lightweight sneakers engineered for all-day comfort and style.',
+      price: 89.99,
+      currency: 'USD',
+      stock: 42,
+      images: JSON.stringify(['/images/feature.jpg'])
     },
     {
-      name: "Aurora Smart Speaker",
-      description: "Wi-Fi enabled smart speaker with voice control.",
-      price: 129.5,
-      sku: "ASS-210",
+      name: 'Momentum Backpack',
+      description: 'Water-resistant backpack with modular storage for remote teams.',
+      price: 129.0,
+      currency: 'USD',
       stock: 18,
-      active: true,
-      ownerId: user.id,
-      images: JSON.stringify(["/images/feature.jpg", "/images/cta.jpg"])
+      images: JSON.stringify(['/images/hero.jpg'])
     },
     {
-      name: "Atlas Backpack",
-      description: "Water-resistant backpack for everyday travel.",
-      price: 64.0,
-      sku: "ABP-455",
-      stock: 54,
-      active: true,
-      ownerId: user.id,
-      images: JSON.stringify([])
+      name: 'Aurora Desk Lamp',
+      description: 'Minimal LED lamp with adjustable brightness and color temperature.',
+      price: 59.0,
+      currency: 'USD',
+      stock: 27,
+      images: JSON.stringify(['/images/cta.jpg'])
     }
   ];
 
   for (const product of products) {
-    await prisma.product.create({ data: product });
+    await db.product.create({ data: product });
   }
 }
 
 main()
-  .catch((error) => {
+  .catch((error: unknown) => {
     console.error(error);
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await db.$disconnect();
   });
