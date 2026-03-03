@@ -1,11 +1,10 @@
-import type { Metadata } from 'next';
-import './globals.css';
-import { AuthProvider } from '@/providers/AuthProvider';
-import { ToastProvider } from '@/providers/ToastProvider';
+import "./global.css";
+import { AuthProvider } from "@/providers/AuthProvider";
+import Navigation from '@/components/layout/Navigation';
 
-export const metadata: Metadata = {
-  title: 'App',
-  description: 'Next.js 14 App',
+export const metadata = {
+  title: "App",
+  description: "Next.js application",
 };
 
 export default function RootLayout({
@@ -15,10 +14,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        <AuthProvider>
-          <ToastProvider>{children}</ToastProvider>
-        </AuthProvider>
+      <body className="min-h-screen bg-gray-50 text-gray-900">
+        <AuthProvider><><Navigation />{children}</></AuthProvider>
       </body>
     </html>
   );

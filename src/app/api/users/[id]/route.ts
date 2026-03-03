@@ -1,113 +1,103 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
-import { db } from '@/lib/db';
-import { getCurrentUser, hashPassword } from '@/lib/auth';
+import db from '@/lib/db';
+import { getTokenFromHeader, verifyToken, hashPassword } from '@/lib/auth';
 
 const updateSchema = z.object({
-  name: z.string().min(1).optional(),
+  name: z.string().min(2).optional(),
   email: z.string().email().optional(),
-  password: z.string().min(6).optional(),
-  role: z.enum(['user', 'admin']).optional()
+  password: z.string().min(8).optional()
 });
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
-  const current = await getCurrentUser(request);
-  if (!current) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
-
-  if (current.role !== 'admin' && current.id !== params.id) {
-    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-  }
-
   try {
-    const user = await db.user.findUnique({ where: { id: params.id } });
+    const token = getTokenFromHeader(request.headers.get('authorization'));
+    if (!token) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    const payload = verifyToken(token);
+    const userId = typeof payload.userId === 'string' ? payload.userId : null;
+    const role = typeof payload.role === 'string' ? payload.role : 'user';
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (userId !== params.id && role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
+    const user = await db.user.findUnique({
+      where: { id: params.id },
+      select: { id: true, name: true, email: true, role: true, created_at: true }
+    });
+
     if (!user) {
       return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt
-      }
-    });
-  } catch {
-    return NextResponse.json({ success: false, error: 'Failed to fetch user' }, { status: 500 });
+    return NextResponse.json({ success: true, data: user });
+  } catch (_error) {
+    return NextResponse.json({ success: false, error: 'Unable to fetch user' }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-  const current = await getCurrentUser(request);
-  if (!current) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
-
-  if (current.role !== 'admin' && current.id !== params.id) {
-    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-  }
-
-  let payload: z.infer<typeof updateSchema>;
   try {
-    const json = await request.json();
-    payload = updateSchema.parse(json);
-  } catch {
-    return NextResponse.json({ success: false, error: 'Invalid input' }, { status: 400 });
-  }
-
-  if (Object.keys(payload).length === 0) {
-    return NextResponse.json({ success: false, error: 'No fields to update' }, { status: 400 });
-  }
-
-  if (payload.role && current.role !== 'admin') {
-    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-  }
-
-  try {
-    const data: Prisma.UserUpdateInput = {};
-    if (payload.name !== undefined) data.name = payload.name;
-    if (payload.email !== undefined) data.email = payload.email;
-    if (payload.role !== undefined) data.role = payload.role;
-    if (payload.password !== undefined) {
-      data.passwordHash = await hashPassword(payload.password);
+    const token = getTokenFromHeader(request.headers.get('authorization'));
+    if (!token) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    const payload = verifyToken(token);
+    const userId = typeof payload.userId === 'string' ? payload.userId : null;
+    const role = typeof payload.role === 'string' ? payload.role : 'user';
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await db.user.update({ where: { id: params.id }, data });
+    if (userId !== params.id && role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
 
-    return NextResponse.json({
-      success: true,
+    const data = updateSchema.parse(await request.json());
+    const existing = await db.user.findUnique({ where: { id: params.id } });
+    if (!existing) {
+      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+    }
+
+    const password_hash = data.password ? await hashPassword(data.password) : existing.password_hash;
+
+    const user = await db.user.update({
+      where: { id: params.id },
       data: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt
-      }
+        name: data.name ?? existing.name,
+        email: data.email ?? existing.email,
+        password_hash
+      },
+      select: { id: true, name: true, email: true, role: true, created_at: true }
     });
-  } catch {
-    return NextResponse.json({ success: false, error: 'Failed to update user' }, { status: 500 });
+
+    return NextResponse.json({ success: true, data: user });
+  } catch (_error) {
+    return NextResponse.json({ success: false, error: 'Validation error' }, { status: 400 });
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
-  const current = await getCurrentUser(request);
-  if (!current) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
-
-  if (current.role !== 'admin') {
-    return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-  }
-
   try {
+    const token = getTokenFromHeader(request.headers.get('authorization'));
+    if (!token) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    const payload = verifyToken(token);
+    const role = typeof payload.role === 'string' ? payload.role : 'user';
+
+    if (role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     await db.user.delete({ where: { id: params.id } });
-    return NextResponse.json({ success: true, data: { success: true } });
-  } catch {
-    return NextResponse.json({ success: false, error: 'Failed to delete user' }, { status: 500 });
+    return NextResponse.json({ success: true, data: { id: params.id } });
+  } catch (_error) {
+    return NextResponse.json({ success: false, error: 'Unable to delete user' }, { status: 500 });
   }
 }

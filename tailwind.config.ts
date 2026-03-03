@@ -16,7 +16,7 @@ const config: Config = {
         success: 'var(--success)'
       },
       borderRadius: {
-        DEFAULT: 'var(--radius)'
+        lg: 'var(--radius)'
       }
     }
   },

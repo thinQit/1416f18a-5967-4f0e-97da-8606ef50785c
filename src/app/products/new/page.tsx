@@ -1,187 +1,126 @@
 'use client';
 
 import { useState } from 'react';
+import type React from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import Button from '@/components/ui/Button';
-import Input from '@/components/ui/Input';
 import Card, { CardContent, CardHeader } from '@/components/ui/Card';
+import Input from '@/components/ui/Input';
+import Button from '@/components/ui/Button';
+import { api } from '@/lib/api';
 import { useAuth } from '@/providers/AuthProvider';
-import { useToast } from '@/providers/ToastProvider';
 
-interface ProductPayload {
-  name: string;
-  description?: string;
-  price: number;
-  sku?: string;
-  stock?: number;
-  images?: string[];
-}
-
-export default function NewProductPage() {
+export default function AddProductPage() {
   const router = useRouter();
-  const { isAuthenticated, loading: authLoading } = useAuth();
-  const { toast } = useToast();
-
-  const [form, setForm] = useState({
-    name: '',
-    description: '',
-    price: '',
-    sku: '',
-    stock: '',
-  });
-  const [errors, setErrors] = useState<{ name?: string; price?: string }>({});
+  const { token } = useAuth();
+  const [form, setForm] = useState({ name: '', description: '', price: '', quantity: '', images: '' });
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
 
-  const validate = () => {
-    const next: { name?: string; price?: string } = {};
-    if (!form.name.trim()) next.name = 'Product name is required.';
-    if (!form.price.trim() || Number.isNaN(Number(form.price))) next.price = 'Valid price is required.';
-    setErrors(next);
-    return Object.keys(next).length === 0;
-  };
-
-  const handleChange = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({ ...prev, [field]: e.target.value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setServerError(null);
-    if (!validate()) return;
-
-    const payload: ProductPayload = {
-      name: form.name.trim(),
-      description: form.description.trim() || undefined,
-      price: Number(form.price),
-      sku: form.sku.trim() || undefined,
-      stock: form.stock.trim() ? Number(form.stock) : undefined,
-    };
-
-    const token = localStorage.getItem('token');
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError('');
+    setSuccess('');
     if (!token) {
-      setServerError('You must be logged in to add a product.');
+      setError('Please log in to add a product.');
       return;
     }
-
     setLoading(true);
     try {
-      const response = await fetch('/api/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: 'Unable to create product.' }));
-        setServerError(err.error || 'Unable to create product.');
-        return;
-      }
-
-      toast('Product created successfully!', 'success');
+      const payload = {
+        name: form.name,
+        description: form.description,
+        price: Number(form.price),
+        quantity: form.quantity ? Number(form.quantity) : 0,
+        images: form.images ? form.images.split(',').map((url) => url.trim()).filter((url) => url.length > 0) : []
+      };
+      await api.post('/api/products', payload, token);
+      setSuccess('Product created successfully.');
       router.push('/products');
     } catch (_error) {
-      setServerError('Unable to create product.');
+      setError('Unable to create product. Please check the form.');
     } finally {
       setLoading(false);
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className="mx-auto flex min-h-[60vh] w-full max-w-6xl items-center justify-center px-4">
-        <p className="text-sm text-secondary">Loading...</p>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated()) {
-    return (
-      <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 px-4 py-16 text-center">
-        <h1 className="text-2xl font-semibold">Sign in required</h1>
-        <p className="text-sm text-secondary">Please log in to add a new product.</p>
-        <Button asChild>
-          <Link href="/login">Go to login</Link>
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-semibold">Add a new product</h1>
-        <p className="mt-1 text-sm text-secondary">Fill in the details to list a new product.</p>
-      </div>
-      <Card className="max-w-2xl">
-        <CardHeader>
-          <h2 className="text-lg font-semibold">Product details</h2>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <Input
-              label="Product name"
-              name="name"
-              placeholder="Wireless headphones"
-              value={form.name}
-              onChange={handleChange('name')}
-              error={errors.name}
-              required
-            />
-            <Input
-              label="Description"
-              name="description"
-              placeholder="Describe the product"
-              value={form.description}
-              onChange={handleChange('description')}
-            />
-            <div className="grid gap-4 md:grid-cols-2">
+    <main className="min-h-screen bg-background px-6 py-16">
+      <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-2">
+        <div className="space-y-6">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
+            Add Product
+          </div>
+          <h1 className="text-3xl font-bold text-foreground sm:text-4xl">Publish a new product to My App.</h1>
+          <p className="text-secondary/70">
+            Share product details, pricing, and inventory so customers can find what they need fast.
+          </p>
+          <div className="rounded-xl border border-border bg-white p-4 text-sm text-secondary/70">
+            Tip: Add multiple image URLs separated by commas to highlight different angles.
+          </div>
+        </div>
+        <Card>
+          <CardHeader>
+            <h2 className="text-xl font-semibold text-foreground">Product Details</h2>
+            <p className="text-sm text-secondary/70">All fields marked required must be completed.</p>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <Input
+                label="Product Name"
+                name="name"
+                value={form.name}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, name: event.target.value })
+                }
+                required
+              />
+              <Input
+                label="Description"
+                name="description"
+                value={form.description}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, description: event.target.value })
+                }
+                required
+              />
               <Input
                 label="Price"
                 name="price"
                 type="number"
-                placeholder="0.00"
+                step="0.01"
                 value={form.price}
-                onChange={handleChange('price')}
-                error={errors.price}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, price: event.target.value })
+                }
                 required
               />
               <Input
-                label="Stock"
-                name="stock"
+                label="Quantity"
+                name="quantity"
                 type="number"
-                placeholder="0"
-                value={form.stock}
-                onChange={handleChange('stock')}
+                value={form.quantity}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, quantity: event.target.value })
+                }
               />
-            </div>
-            <Input
-              label="SKU"
-              name="sku"
-              placeholder="Optional SKU"
-              value={form.sku}
-              onChange={handleChange('sku')}
-            />
-            {serverError && (
-              <p className="text-sm text-error" role="alert">
-                {serverError}
-              </p>
-            )}
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button type="submit" loading={loading}>
-                Create product
+              <Input
+                label="Image URLs (comma separated)"
+                name="images"
+                value={form.images}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, images: event.target.value })
+                }
+              />
+              {error && <p className="text-sm text-error">{error}</p>}
+              {success && <p className="text-sm text-success">{success}</p>}
+              <Button type="submit" isLoading={loading} className="w-full">
+                Save Product
               </Button>
-              <Button type="button" variant="outline" onClick={() => router.push('/products')}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </main>
   );
 }

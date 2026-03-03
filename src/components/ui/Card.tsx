@@ -1,24 +1,32 @@
-import React from 'react';
+import * as React from "react";
 
-type CardProps = React.HTMLAttributes<HTMLDivElement>;
-
-type CardSectionProps = React.HTMLAttributes<HTMLDivElement>;
-
-function Card({ className = '', ...props }: CardProps) {
+export function Card({
+  className = "",
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`rounded-lg border border-gray-200 bg-white p-4 shadow-sm ${className}`}
+      className={`rounded-lg border border-gray-200 bg-white shadow-sm ${className}`}
       {...props}
     />
   );
 }
 
-export function CardHeader({ className = '', ...props }: CardSectionProps) {
-  return <div className={`mb-3 text-lg font-semibold ${className}`} {...props} />;
+export function CardHeader({
+  className = "",
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={`border-b border-gray-200 px-4 py-3 text-base font-semibold text-gray-900 ${className}`}
+      {...props}
+    />
+  );
 }
 
-export function CardContent({ className = '', ...props }: CardSectionProps) {
-  return <div className={`text-sm text-gray-700 ${className}`} {...props} />;
+export function CardContent({
+  className = "",
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={`px-4 py-3 ${className}`} {...props} />;
 }
-
-export default Card;

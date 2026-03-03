@@ -1,98 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { db } from '@/lib/db';
-import { hashPassword } from '@/lib/auth';
-
-const querySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(10)
-});
+import db from '@/lib/db';
+import { getTokenFromHeader, verifyToken, hashPassword } from '@/lib/auth';
 
 const createSchema = z.object({
-  name: z.string().min(1),
+  name: z.string().min(2),
   email: z.string().email(),
-  password: z.string().min(6),
-  role: z.enum(['user', 'admin']).optional()
+  password: z.string().min(8),
+  role: z.string().optional()
 });
 
+function isAdmin(token: string | null): boolean {
+  if (!token) return false;
+  const payload = verifyToken(token);
+  return payload.role === 'admin';
+}
+
 export async function GET(request: NextRequest) {
-  let query: z.infer<typeof querySchema>;
   try {
-    const { searchParams } = new URL(request.url);
-    query = querySchema.parse({
-      page: searchParams.get('page') ?? undefined,
-      pageSize: searchParams.get('pageSize') ?? undefined
-    });
-  } catch {
-    return NextResponse.json({ success: false, error: 'Invalid query parameters' }, { status: 400 });
-  }
+    const token = getTokenFromHeader(request.headers.get('authorization'));
+    if (!isAdmin(token)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
 
-  try {
-    const [total, users] = await Promise.all([
-      db.user.count(),
-      db.user.findMany({
-        orderBy: { createdAt: 'desc' },
-        skip: (query.page - 1) * query.pageSize,
-        take: query.pageSize
-      })
-    ]);
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        total,
-        page: query.page,
-        pageSize: query.pageSize,
-        items: users.map(user => ({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          createdAt: user.createdAt
-        }))
-      }
+    const users = await db.user.findMany({
+      select: { id: true, name: true, email: true, role: true, created_at: true }
     });
-  } catch {
-    return NextResponse.json({ success: false, error: 'Failed to fetch users' }, { status: 500 });
+
+    return NextResponse.json({ success: true, data: users });
+  } catch (_error) {
+    return NextResponse.json({ success: false, error: 'Unable to fetch users' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
-  let payload: z.infer<typeof createSchema>;
   try {
-    const json = await request.json();
-    payload = createSchema.parse(json);
-  } catch {
-    return NextResponse.json({ success: false, error: 'Invalid input' }, { status: 400 });
-  }
-
-  try {
-    const existing = await db.user.findUnique({ where: { email: payload.email } });
-    if (existing) {
-      return NextResponse.json({ success: false, error: 'Email already registered' }, { status: 409 });
+    const token = getTokenFromHeader(request.headers.get('authorization'));
+    if (!isAdmin(token)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
-    const passwordHash = await hashPassword(payload.password);
+    const payload = createSchema.parse(await request.json());
+    const existing = await db.user.findUnique({ where: { email: payload.email } });
+    if (existing) {
+      return NextResponse.json({ success: false, error: 'Email already registered' }, { status: 400 });
+    }
+
+    const password_hash = await hashPassword(payload.password);
     const user = await db.user.create({
       data: {
         name: payload.name,
         email: payload.email,
-        passwordHash,
-        role: payload.role ?? 'user'
+        password_hash,
+        role: payload.role === 'admin' ? 'admin' : 'user'
       }
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        createdAt: user.createdAt
-      }
-    }, { status: 201 });
-  } catch {
-    return NextResponse.json({ success: false, error: 'Failed to create user' }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: true,
+        data: { id: user.id, name: user.name, email: user.email, role: user.role, created_at: user.created_at }
+      },
+      { status: 201 }
+    );
+  } catch (_error) {
+    return NextResponse.json({ success: false, error: 'Validation error' }, { status: 400 });
   }
 }

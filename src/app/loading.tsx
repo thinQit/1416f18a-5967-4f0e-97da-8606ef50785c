@@ -1,9 +1,9 @@
-import Spinner from '@/components/ui/Spinner';
-
-export default function Loading() {
+export default function LoadingPage() {
   return (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <Spinner className="h-8 w-8" />
-    </div>
+    <main className="min-h-screen bg-background px-6 py-16">
+      <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-white p-8 text-center">
+        <p className="text-secondary/70">Loading...</p>
+      </div>
+    </main>
   );
 }

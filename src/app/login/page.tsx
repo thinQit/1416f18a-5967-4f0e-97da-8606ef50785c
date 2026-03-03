@@ -1,128 +1,94 @@
 'use client';
 
 import { useState } from 'react';
+import type React from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Card, { CardContent, CardHeader } from '@/components/ui/Card';
-import { useAuth } from '@/providers/AuthProvider';
-import { useToast } from '@/providers/ToastProvider';
 import { api } from '@/lib/api';
-
-interface LoginResponse {
-  token: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    role: 'user' | 'admin';
-  };
-}
+import { useAuth } from '@/providers/AuthProvider';
+import type { User } from '@/types';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
-  const { toast } = useToast();
-
+  const { setSession } = useAuth();
   const [form, setForm] = useState({ email: '', password: '' });
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
 
-  const validate = () => {
-    const next: { email?: string; password?: string } = {};
-    if (!form.email.trim()) next.email = 'Email is required.';
-    if (!form.password.trim()) next.password = 'Password is required.';
-    setErrors(next);
-    return Object.keys(next).length === 0;
-  };
-
-  const handleChange = (field: 'email' | 'password') => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({ ...prev, [field]: e.target.value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setServerError(null);
-    if (!validate()) return;
-
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError('');
     setLoading(true);
     try {
-      const response = await api.post<LoginResponse>('/api/auth/login', form);
-      if (!response.data || response.error) {
-        setServerError(response.error || 'Login failed.');
+      const response = await api.post<{ user: User; token: string }>('/api/login', form);
+      if (response?.success && response.data?.token && response.data?.user) {
+        setSession(response.data.user, response.data.token);
+        router.push('/products');
         return;
       }
-      localStorage.setItem('token', response.data.token);
-      login({
-        id: response.data.user.id,
-        name: response.data.user.name,
-        email: response.data.user.email,
-        role: response.data.user.role,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
-      toast('Welcome back!', 'success');
-      router.push('/products');
+      setError(response?.error ?? 'Invalid credentials. Please try again.');
     } catch (_error) {
-      setServerError('Something went wrong. Please try again.');
+      setError('Invalid credentials. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-6 px-4 py-10">
-      <div className="w-full max-w-xl text-center">
-        <h1 className="text-3xl font-semibold">Welcome back</h1>
-        <p className="mt-2 text-sm text-secondary">Sign in to continue managing your products.</p>
-      </div>
-      <Card className="w-full max-w-xl">
-        <CardHeader>
-          <h2 className="text-lg font-semibold">Log in</h2>
-        </CardHeader>
-        <CardContent>
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <Input
-              label="Email"
-              name="email"
-              type="email"
-              placeholder="you@example.com"
-              value={form.email}
-              onChange={handleChange('email')}
-              error={errors.email}
-              autoComplete="email"
-              required
-            />
-            <Input
-              label="Password"
-              name="password"
-              type="password"
-              placeholder="Your password"
-              value={form.password}
-              onChange={handleChange('password')}
-              error={errors.password}
-              autoComplete="current-password"
-              required
-            />
-            {serverError && (
-              <p className="text-sm text-error" role="alert">
-                {serverError}
-              </p>
-            )}
-            <Button type="submit" fullWidth loading={loading}>
-              Sign in
-            </Button>
-          </form>
-          <p className="mt-4 text-center text-sm text-secondary">
-            New here?{' '}
-            <Link href="/register" className="font-medium text-primary hover:underline">
-              Create an account
-            </Link>
+    <main className="min-h-screen bg-background px-6 py-16">
+      <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-2">
+        <div className="space-y-6">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
+            Welcome back
+          </div>
+          <h1 className="text-3xl font-bold text-foreground sm:text-4xl">Sign in to My App.</h1>
+          <p className="text-secondary/70">
+            Access your dashboard to create, update, and manage every product in your catalog.
           </p>
-        </CardContent>
-      </Card>
-    </div>
+          <div className="rounded-xl border border-border bg-white p-4 text-sm text-secondary/70">
+            Secure sessions, role-aware access, and transparent inventory updates are waiting inside.
+          </div>
+        </div>
+        <Card>
+          <CardHeader>
+            <h2 className="text-xl font-semibold text-foreground">Login</h2>
+            <p className="text-sm text-secondary/70">Use the credentials you registered with.</p>
+          </CardHeader>
+          <CardContent>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <Input
+                label="Email"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, email: event.target.value })
+                }
+                required
+              />
+              <Input
+                label="Password"
+                name="password"
+                type="password"
+                value={form.password}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, password: event.target.value })
+                }
+                required
+              />
+              {error && <p className="text-sm text-error">{error}</p>}
+              <Button type="submit" isLoading={loading} className="w-full">
+                Sign In
+              </Button>
+              <p className="text-sm text-secondary/70">
+                New to My App? <a className="text-primary" href="/register">Create an account</a>
+              </p>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </main>
   );
 }

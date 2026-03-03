@@ -8,41 +8,37 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(uuid())
-  name         String
-  email        String        @unique
-  passwordHash String
-  role         String        @default("user")
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  products     Product[]
-  sessions     AuthSession[]
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  password_hash String
+  role          String    @default("user")
+  created_at    DateTime  @default(now())
+  products      Product[]
+  sessions      Session[]
 }
 
 model Product {
-  id          String   @id @default(uuid())
-  name        String
-  description String
-  price       Float
-  sku         String?
-  stock       Int      @default(0)
-  images      String?
-  createdBy   String
-  user        User     @relation(fields: [createdBy], references: [id])
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  deleted     Boolean  @default(false)
+  id                 String   @id @default(uuid())
+  name               String
+  description        String
+  price              Float
+  quantity           Int      @default(0)
+  images             String   @default("[]")
+  created_by_user_id String
+  created_at         DateTime @default(now())
+  creator            User     @relation(fields: [created_by_user_id], references: [id])
 
-  @@index([createdAt])
-  @@index([sku])
-  @@index([price])
+  @@index([created_by_user_id])
+  @@index([name])
 }
 
-model AuthSession {
-  id        String   @id @default(uuid())
-  token     String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+model Session {
+  id                 String   @id @default(uuid())
+  user_id            String
+  refresh_token_hash String
+  expires_at         DateTime
+  user               User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
 }
