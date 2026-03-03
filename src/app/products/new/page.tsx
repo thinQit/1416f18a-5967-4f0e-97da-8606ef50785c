@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import type React from 'react';
 import { useRouter } from 'next/navigation';
-import Card, { CardContent, CardHeader } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { api } from '@/lib/api';
@@ -46,76 +46,50 @@ export default function AddProductPage() {
 
   return (
     <main className="min-h-screen bg-background px-6 py-16">
-      <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-2">
-        <div className="space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
-            Add Product
-          </div>
-          <h1 className="text-3xl font-bold text-foreground sm:text-4xl">Publish a new product to My App.</h1>
-          <p className="text-secondary/70">
-            Share product details, pricing, and inventory so customers can find what they need fast.
-          </p>
-          <div className="rounded-xl border border-border bg-white p-4 text-sm text-secondary/70">
-            Tip: Add multiple image URLs separated by commas to highlight different angles.
-          </div>
-        </div>
+      <div className="mx-auto max-w-2xl">
         <Card>
-          <CardHeader>
-            <h2 className="text-xl font-semibold text-foreground">Product Details</h2>
-            <p className="text-sm text-secondary/70">All fields marked required must be completed.</p>
-          </CardHeader>
+          <CardHeader>Add Product</CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit}>
               <Input
-                label="Product Name"
                 name="name"
+                placeholder="Name"
                 value={form.name}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, name: event.target.value })
-                }
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
                 required
               />
               <Input
-                label="Description"
                 name="description"
+                placeholder="Description"
                 value={form.description}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, description: event.target.value })
-                }
+                onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
                 required
               />
               <Input
-                label="Price"
+                type="number"
                 name="price"
-                type="number"
-                step="0.01"
+                placeholder="Price"
                 value={form.price}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, price: event.target.value })
-                }
+                onChange={(event) => setForm((prev) => ({ ...prev, price: event.target.value }))}
                 required
               />
               <Input
-                label="Quantity"
-                name="quantity"
                 type="number"
+                name="quantity"
+                placeholder="Quantity"
                 value={form.quantity}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, quantity: event.target.value })
-                }
+                onChange={(event) => setForm((prev) => ({ ...prev, quantity: event.target.value }))}
               />
               <Input
-                label="Image URLs (comma separated)"
                 name="images"
+                placeholder="Image URLs (comma-separated)"
                 value={form.images}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, images: event.target.value })
-                }
+                onChange={(event) => setForm((prev) => ({ ...prev, images: event.target.value }))}
               />
-              {error && <p className="text-sm text-error">{error}</p>}
-              {success && <p className="text-sm text-success">{success}</p>}
-              <Button type="submit" isLoading={loading} className="w-full">
-                Save Product
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              {success ? <p className="text-sm text-primary">{success}</p> : null}
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Saving...' : 'Create product'}
               </Button>
             </form>
           </CardContent>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type React from 'react';
-import Card, { CardContent } from '@/components/ui/Card';
+import { Card, CardContent } from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import Spinner from '@/components/ui/Spinner';
@@ -52,9 +52,9 @@ export default function ProductsPage() {
           <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row">
             <Input
               name="search"
-              placeholder="Search by name"
+              placeholder="Search products"
               value={query}
-              onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+              onChange={(event) => {
                 setPage(1);
                 setQuery(event.target.value);
               }}
@@ -64,37 +64,25 @@ export default function ProductsPage() {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-10">
+          <div className="flex items-center justify-center rounded-2xl border border-border bg-white p-10">
             <Spinner />
           </div>
         ) : error ? (
-          <div className="rounded-2xl border border-error/30 bg-error/10 p-6 text-error">
-            {error}
-          </div>
-        ) : products.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-white p-10 text-center">
-            <p className="text-lg font-semibold text-foreground">No products yet</p>
-            <p className="text-sm text-secondary/70">Be the first to add a product to My App.</p>
-          </div>
+          <Card>
+            <CardContent className="text-sm text-destructive">{error}</CardContent>
+          </Card>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {products.map((product) => (
               <Card key={product.id}>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-foreground">{product.name}</h3>
-                      <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                        {product.quantity} in stock
-                      </span>
-                    </div>
-                    <p className="text-sm text-secondary/70">{product.description}</p>
-                    <div className="flex items-center justify-between">
-                      <p className="text-lg font-semibold text-foreground">${Number(product.price).toFixed(2)}</p>
-                      <a className="text-sm font-semibold text-primary" href={`/products/${product.id}`}>
-                        View details
-                      </a>
-                    </div>
+                <CardContent className="space-y-2">
+                  <h3 className="text-lg font-semibold">{product.name}</h3>
+                  <p className="text-sm text-secondary/70 line-clamp-2">{product.description}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold">${product.price.toFixed(2)}</span>
+                    <Button href={`/products/${product.id}`} size="sm">
+                      View
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -102,26 +90,24 @@ export default function ProductsPage() {
           </div>
         )}
 
-        <div className="flex flex-col items-center justify-between gap-4 border-t border-border pt-6 sm:flex-row">
-          <p className="text-sm text-secondary/70">
-            Page {page} of {totalPages} • {total} total products
-          </p>
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              disabled={page === 1}
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            >
-              Previous
-            </Button>
-            <Button
-              variant="outline"
-              disabled={page === totalPages}
-              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-            >
-              Next
-            </Button>
-          </div>
+        <div className="flex items-center justify-center gap-4">
+          <Button
+            type="button"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={page <= 1}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-secondary/70">
+            Page {page} of {totalPages}
+          </span>
+          <Button
+            type="button"
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={page >= totalPages}
+          >
+            Next
+          </Button>
         </div>
       </div>
     </main>

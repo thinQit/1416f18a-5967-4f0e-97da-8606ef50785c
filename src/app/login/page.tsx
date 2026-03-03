@@ -5,7 +5,7 @@ import type React from 'react';
 import { useRouter } from 'next/navigation';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
-import Card, { CardContent, CardHeader } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { api } from '@/lib/api';
 import { useAuth } from '@/providers/AuthProvider';
 import type { User } from '@/types';
@@ -38,53 +38,31 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen bg-background px-6 py-16">
-      <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-2">
-        <div className="space-y-6">
-          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-semibold text-primary">
-            Welcome back
-          </div>
-          <h1 className="text-3xl font-bold text-foreground sm:text-4xl">Sign in to My App.</h1>
-          <p className="text-secondary/70">
-            Access your dashboard to create, update, and manage every product in your catalog.
-          </p>
-          <div className="rounded-xl border border-border bg-white p-4 text-sm text-secondary/70">
-            Secure sessions, role-aware access, and transparent inventory updates are waiting inside.
-          </div>
-        </div>
+      <div className="mx-auto max-w-md">
         <Card>
-          <CardHeader>
-            <h2 className="text-xl font-semibold text-foreground">Login</h2>
-            <p className="text-sm text-secondary/70">Use the credentials you registered with.</p>
-          </CardHeader>
+          <CardHeader>Welcome back</CardHeader>
           <CardContent>
             <form className="space-y-4" onSubmit={handleSubmit}>
               <Input
-                label="Email"
-                name="email"
                 type="email"
+                name="email"
+                placeholder="Email"
                 value={form.email}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, email: event.target.value })
-                }
+                onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
                 required
               />
               <Input
-                label="Password"
-                name="password"
                 type="password"
+                name="password"
+                placeholder="Password"
                 value={form.password}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, password: event.target.value })
-                }
+                onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
                 required
               />
-              {error && <p className="text-sm text-error">{error}</p>}
-              <Button type="submit" isLoading={loading} className="w-full">
-                Sign In
+              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              <Button type="submit" disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign in'}
               </Button>
-              <p className="text-sm text-secondary/70">
-                New to My App? <a className="text-primary" href="/register">Create an account</a>
-              </p>
             </form>
           </CardContent>
         </Card>

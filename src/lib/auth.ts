@@ -1,27 +1,53 @@
+import type { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
-import jwt, { type Secret, type SignOptions } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
+import type { Secret, SignOptions } from 'jsonwebtoken';
+import { prisma } from '@/lib/db';
 
-const JWT_SECRET: Secret = process.env.JWT_SECRET || 'dev-secret-change-me';
+const JWT_SECRET: Secret = process.env.JWT_SECRET ?? 'dev-secret';
+const DEFAULT_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN ?? '1d';
 
-export async function hashPassword(password: string): Promise<string> {
+export function signAccessToken(userId: string, options: SignOptions = {}) {
+  return jwt.sign({ sub: userId }, JWT_SECRET, { expiresIn: DEFAULT_EXPIRES_IN, ...options });
+}
+
+export function verifyToken(token: string) {
+  return jwt.verify(token, JWT_SECRET);
+}
+
+export function getBearerToken(value?: string | null) {
+  if (!value) return null;
+  const [type, token] = value.split(' ');
+  if (!type || type.toLowerCase() !== 'bearer' || !token) return null;
+  return token;
+}
+
+export function getTokenFromHeader(value?: string | null) {
+  return getBearerToken(value);
+}
+
+export async function hashPassword(password: string) {
   return bcrypt.hash(password, 10);
 }
 
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
 }
 
-export function signToken(payload: object): string {
-  const options: SignOptions = { expiresIn: '24h' };
-  return jwt.sign(payload, JWT_SECRET, options);
-}
+export async function getCurrentUser(request: NextRequest) {
+  const token =
+    getTokenFromHeader(request.headers.get('authorization')) ??
+    request.cookies.get('token')?.value ??
+    null;
 
-export function verifyToken(token: string): jwt.JwtPayload {
-  return jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
-}
+  if (!token) return null;
 
-export function getTokenFromHeader(authHeader: string | null): string | null {
-  if (!authHeader) return null;
-  const parts = authHeader.split(' ');
-  return parts[0] === 'Bearer' && parts[1] ? parts[1] : null;
+  try {
+    const payload = verifyToken(token) as jwt.JwtPayload;
+    const userId = typeof payload.sub === 'string' ? payload.sub : null;
+    if (!userId) return null;
+    return prisma.user.findUnique({ where: { id: userId } });
+  } catch {
+    return null;
+  }
 }

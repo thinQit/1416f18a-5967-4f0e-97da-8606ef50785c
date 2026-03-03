@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Card, { CardContent, CardHeader } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Spinner from '@/components/ui/Spinner';
 import Button from '@/components/ui/Button';
@@ -34,7 +34,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchMetrics = async () => {
-      if (!isAdmin()) {
+      if (!isAdmin) {
         setLoading(false);
         return;
       }
@@ -50,8 +50,8 @@ export default function DashboardPage() {
 
         const response = await fetch('/api/dashboard/metrics', {
           headers: {
-            Authorization: `Bearer ${token}`,
-          },
+            Authorization: `Bearer ${token}`
+          }
         });
 
         if (!response.ok) {
@@ -76,118 +76,94 @@ export default function DashboardPage() {
     }
   }, [authLoading, isAdmin]);
 
-  if (authLoading) {
+  if (authLoading || loading) {
     return (
-      <div className="mx-auto flex min-h-[60vh] w-full max-w-6xl items-center justify-center px-4">
-        <Spinner className="h-8 w-8" />
-      </div>
+      <main className="min-h-screen bg-background px-6 py-16">
+        <div className="flex items-center justify-center">
+          <Spinner />
+        </div>
+      </main>
     );
   }
 
-  if (!isAdmin()) {
+  if (!isAdmin) {
     return (
-      <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 px-4 py-16 text-center">
-        <h1 className="text-2xl font-semibold">Admin access required</h1>
-        <p className="text-sm text-secondary">You do not have permission to view the dashboard.</p>
-        <Button asChild>
-          <Link href="/products">Back to products</Link>
-        </Button>
-      </div>
+      <main className="min-h-screen bg-background px-6 py-16">
+        <Card>
+          <CardContent className="space-y-3">
+            <h1 className="text-xl font-semibold">Admin access required</h1>
+            <p className="text-sm text-muted-foreground">You need admin permissions to view this dashboard.</p>
+            <Link href="/products" className="text-sm font-medium text-primary hover:underline">
+              Back to products
+            </Link>
+          </CardContent>
+        </Card>
+      </main>
     );
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-8">
-      <div className="mb-6">
-        <h1 className="text-3xl font-semibold">Admin dashboard</h1>
-        <p className="mt-1 text-sm text-secondary">Quick overview of platform activity.</p>
+    <main className="min-h-screen bg-background px-6 py-10">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Overview of platform activity.</p>
+          </div>
+          <Button href="/products/new">Add product</Button>
+        </div>
+
+        {error ? (
+          <Card>
+            <CardContent className="text-sm text-destructive">{error}</CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2">
+            <Card>
+              <CardHeader>Total users</CardHeader>
+              <CardContent className="text-3xl font-semibold">{data?.totalUsers ?? 0}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>Total products</CardHeader>
+              <CardContent className="text-3xl font-semibold">{data?.totalProducts ?? 0}</CardContent>
+            </Card>
+            <Card>
+              <CardHeader>Recent users</CardHeader>
+              <CardContent className="space-y-2">
+                {data?.recentUsers?.length ? (
+                  <ul className="space-y-2">
+                    {data.recentUsers.map((user) => (
+                      <li key={user.id} className="flex items-center justify-between text-sm">
+                        <span>{user.name}</span>
+                        <Badge>{user.role}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No recent users.</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>Recent products</CardHeader>
+              <CardContent className="space-y-2">
+                {data?.recentProducts?.length ? (
+                  <ul className="space-y-2">
+                    {data.recentProducts.map((product) => (
+                      <li key={product.id} className="flex items-center justify-between text-sm">
+                        <span>{product.name}</span>
+                        <span>${product.price.toFixed(2)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No recent products.</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
-
-      {loading ? (
-        <div className="flex min-h-[200px] items-center justify-center">
-          <Spinner className="h-8 w-8" />
-        </div>
-      ) : error ? (
-        <div className="rounded-md border border-error/30 bg-red-50 p-4 text-sm text-error" role="alert">
-          {error}
-        </div>
-      ) : !data ? (
-        <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-secondary">
-          No metrics available.
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <h2 className="text-sm font-medium text-secondary">Total users</h2>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold">{data.totalUsers}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <h2 className="text-sm font-medium text-secondary">Total products</h2>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold">{data.totalProducts}</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <h2 className="text-base font-semibold">Recent products</h2>
-              </CardHeader>
-              <CardContent>
-                {(data.recentProducts?.length ?? 0) === 0 ? (
-                  <p className="text-sm text-secondary">No recent products.</p>
-                ) : (
-                  <ul className="space-y-3">
-                    {data.recentProducts?.map(product => (
-                      <li key={product.id} className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium">{product.name}</p>
-                          <p className="text-xs text-secondary">
-                            Added {product.createdAt ? new Date(product.createdAt).toLocaleDateString() : 'N/A'}
-                          </p>
-                        </div>
-                        <Badge variant="secondary">${product.price.toFixed(2)}</Badge>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader>
-                <h2 className="text-base font-semibold">Recent users</h2>
-              </CardHeader>
-              <CardContent>
-                {(data.recentUsers?.length ?? 0) === 0 ? (
-                  <p className="text-sm text-secondary">No recent users.</p>
-                ) : (
-                  <ul className="space-y-3">
-                    {data.recentUsers?.map(user => (
-                      <li key={user.id} className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium">{user.name}</p>
-                          <p className="text-xs text-secondary">{user.email}</p>
-                        </div>
-                        <Badge variant={user.role === 'admin' ? 'success' : 'default'}>
-                          {user.role}
-                        </Badge>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
-    </div>
+    </main>
   );
 }
