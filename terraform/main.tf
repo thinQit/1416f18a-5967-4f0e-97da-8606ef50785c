@@ -63,5 +63,8 @@ resource "azurerm_container_app" "app" {
 
       env {
         name  = "NODE_ENV"
-     
-... [truncated]
+        value = "production"
+      }
+    }
+  }
+}
