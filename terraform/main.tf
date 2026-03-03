@@ -13,24 +13,9 @@ data "azurerm_container_registry" "acr" {
   resource_group_name = data.azurerm_resource_group.rg.name
 }
 
-locals {
-  container_app_name_base = trim(
-    replace(
-      replace(lower(var.container_app_name), "/[^a-z0-9-]/", "-"),
-      "/-+/",
-      "-"
-    ),
-    "-"
-  )
-  container_app_name_prefixed = length(local.container_app_name_base) == 0 ? "app" : (
-    can(regex("^[a-z]", local.container_app_name_base)) ? local.container_app_name_base : "app-${local.container_app_name_base}"
-  )
-  container_app_name = trim(substr(local.container_app_name_prefixed, 0, 32), "-")
-}
-
 # Container App
 resource "azurerm_container_app" "app" {
-  name                         = local.container_app_name
+  name                         = var.container_app_name
   container_app_environment_id = data.azurerm_container_app_environment.env.id
   resource_group_name          = data.azurerm_resource_group.rg.name
   revision_mode                = "Single"
@@ -61,7 +46,7 @@ resource "azurerm_container_app" "app" {
     max_replicas = 1
 
     container {
-      name   = local.container_app_name
+      name   = var.container_app_name
       image  = "mcr.microsoft.com/k8se/quickstart:latest"
       cpu    = 0.5
       memory = "1Gi"
@@ -74,6 +59,16 @@ resource "azurerm_container_app" "app" {
         name  = "PORT"
         value = "3000"
       }
+      env {
+        name  = "HOSTNAME"
+        value = "0.0.0.0"
+      }
     }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      template[0].container[0].image
+    ]
   }
 }

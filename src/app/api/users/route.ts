@@ -1,68 +1,52 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
-import { getTokenFromHeader, hashPassword, verifyToken } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { getCurrentUser, isAdmin } from '@/lib/auth-helpers';
+import { hashPassword } from '@/lib/auth';
 
-const createUserSchema = z.object({
+const createSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  role: z.enum(['user', 'admin']).optional()
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters'),
+  role: z.string().optional()
 });
 
 const querySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(10)
+  page: z.string().optional(),
+  limit: z.string().optional()
 });
-
-async function getCurrentUser(request: NextRequest) {
-  const token = getTokenFromHeader(request.headers.get('authorization')) ?? request.cookies.get('token')?.value ?? null;
-  if (!token) return null;
-  try {
-    const payload = verifyToken(token);
-    const userId = typeof payload.sub === 'string' ? payload.sub : null;
-    if (!userId) return null;
-    return prisma.user.findUnique({ where: { id: userId } });
-  } catch {
-    return null;
-  }
-}
 
 export async function GET(request: NextRequest) {
   try {
-    const currentUser = await getCurrentUser(request);
-    if (!currentUser) {
+    const user = await getCurrentUser(request);
+    if (!user) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (currentUser.role !== 'admin') {
+    if (!isAdmin(user)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     const parsed = querySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
+    const pageValue = Number(parsed.page ?? 1);
+    const limitValue = Number(parsed.limit ?? 20);
+
+    const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
+    const limit = Number.isFinite(limitValue) && limitValue > 0 ? Math.min(limitValue, 100) : 20;
+
     const [items, total] = await Promise.all([
-      prisma.user.findMany({
-        skip: (parsed.page - 1) * parsed.limit,
-        take: parsed.limit,
-        orderBy: { createdAt: 'desc' }
+      db.user.findMany({
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, name: true, email: true, role: true, createdAt: true, updatedAt: true }
       }),
-      prisma.user.count()
+      db.user.count()
     ]);
 
-    const users = items.map((user) => ({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      createdAt: user.createdAt
-    }));
-
-    return NextResponse.json({
-      success: true,
-      data: { items: users, total, page: parsed.page, limit: parsed.limit }
-    });
+    return NextResponse.json({ success: true, data: { items, total, page, limit } });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.issues[0]?.message || 'Invalid query' }, { status: 400 });
+      return NextResponse.json({ success: false, error: error.errors.map(err => err.message).join(', ') }, { status: 400 });
     }
     return NextResponse.json({ success: false, error: 'Failed to fetch users' }, { status: 500 });
   }
@@ -70,39 +54,37 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const currentUser = await getCurrentUser(request);
-    if (!currentUser) {
+    const authUser = await getCurrentUser(request);
+    if (!authUser) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (currentUser.role !== 'admin') {
+    if (!isAdmin(authUser)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
-    const payload = createUserSchema.parse(body);
+    const data = createSchema.parse(body);
 
-    const existing = await prisma.user.findUnique({ where: { email: payload.email } });
+    const existing = await db.user.findUnique({ where: { email: data.email } });
     if (existing) {
       return NextResponse.json({ success: false, error: 'Email already registered' }, { status: 400 });
     }
 
-    const passwordHash = await hashPassword(payload.password);
-    const user = await prisma.user.create({
+    const passwordHash = await hashPassword(data.password);
+    const user = await db.user.create({
       data: {
-        name: payload.name,
-        email: payload.email,
+        name: data.name,
+        email: data.email,
         passwordHash,
-        role: payload.role ?? 'user'
-      }
+        role: data.role === 'admin' ? 'admin' : 'user'
+      },
+      select: { id: true, name: true, email: true, role: true, createdAt: true, updatedAt: true }
     });
 
-    return NextResponse.json({
-      success: true,
-      data: { id: user.id, name: user.name, email: user.email, role: user.role }
-    }, { status: 201 });
+    return NextResponse.json({ success: true, data: user }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.issues[0]?.message || 'Invalid input' }, { status: 400 });
+      return NextResponse.json({ success: false, error: error.errors.map(err => err.message).join(', ') }, { status: 400 });
     }
     return NextResponse.json({ success: false, error: 'Failed to create user' }, { status: 500 });
   }

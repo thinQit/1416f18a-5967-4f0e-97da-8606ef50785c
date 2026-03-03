@@ -4,51 +4,40 @@ import { db } from '@/lib/db';
 import { getCurrentUser, isAdmin } from '@/lib/auth-helpers';
 
 const createSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  description: z.string().min(1, 'Description is required'),
-  price: z.number().positive('Price must be greater than 0'),
-  inventory: z.number().int().min(0, 'Inventory must be 0 or greater'),
-  imageUrl: z.string().url('Image URL must be valid').optional()
+  userId: z.string().min(1, 'User ID is required'),
+  token: z.string().min(1, 'Token is required'),
+  expiresAt: z.string().min(1, 'Expiry is required')
 });
 
 const querySchema = z.object({
   page: z.string().optional(),
-  limit: z.string().optional(),
-  q: z.string().optional(),
-  sort: z.string().optional()
+  limit: z.string().optional()
 });
-
-const allowedSortFields = ['title', 'price', 'createdAt', 'inventory', 'updatedAt'];
-
-type SortOrder = 'asc' | 'desc';
 
 export async function GET(request: NextRequest) {
   try {
+    const authUser = await getCurrentUser(request);
+    if (!authUser) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    if (!isAdmin(authUser)) {
+      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    }
+
     const parsed = querySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
     const pageValue = Number(parsed.page ?? 1);
     const limitValue = Number(parsed.limit ?? 20);
 
     const page = Number.isFinite(pageValue) && pageValue > 0 ? pageValue : 1;
     const limit = Number.isFinite(limitValue) && limitValue > 0 ? Math.min(limitValue, 100) : 20;
-    const q = parsed.q?.trim() ?? '';
-
-    const sortParam = parsed.sort ?? 'createdAt:desc';
-    const [field, order] = sortParam.split(':');
-    const sortField = allowedSortFields.includes(field) ? field : 'createdAt';
-    const sortOrder: SortOrder = order === 'asc' ? 'asc' : 'desc';
-
-    const where = q
-      ? { title: { contains: q, mode: 'insensitive' } }
-      : {};
 
     const [items, total] = await Promise.all([
-      db.product.findMany({
-        where,
-        orderBy: { [sortField]: sortOrder },
+      db.authToken.findMany({
         skip: (page - 1) * limit,
-        take: limit
+        take: limit,
+        orderBy: { createdAt: 'desc' }
       }),
-      db.product.count({ where })
+      db.authToken.count()
     ]);
 
     return NextResponse.json({ success: true, data: { items, total, page, limit } });
@@ -56,29 +45,41 @@ export async function GET(request: NextRequest) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ success: false, error: error.errors.map(err => err.message).join(', ') }, { status: 400 });
     }
-    return NextResponse.json({ success: false, error: 'Failed to fetch products' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to fetch tokens' }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request);
-    if (!user) {
+    const authUser = await getCurrentUser(request);
+    if (!authUser) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (!isAdmin(user)) {
+    if (!isAdmin(authUser)) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
     const data = createSchema.parse(body);
 
-    const product = await db.product.create({ data });
-    return NextResponse.json({ success: true, data: product }, { status: 201 });
+    const expiresAt = new Date(data.expiresAt);
+    if (Number.isNaN(expiresAt.getTime())) {
+      return NextResponse.json({ success: false, error: 'Invalid expiry date' }, { status: 400 });
+    }
+
+    const token = await db.authToken.create({
+      data: {
+        userId: data.userId,
+        token: data.token,
+        expiresAt
+      }
+    });
+
+    return NextResponse.json({ success: true, data: token }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ success: false, error: error.errors.map(err => err.message).join(', ') }, { status: 400 });
     }
-    return NextResponse.json({ success: false, error: 'Failed to create product' }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Failed to create token' }, { status: 500 });
   }
 }

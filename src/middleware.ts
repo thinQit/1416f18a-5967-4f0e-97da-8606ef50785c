@@ -3,43 +3,32 @@ import { getTokenFromHeader, verifyToken } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
-const PUBLIC_PATHS = ['/api/health', '/api/auth/login', '/api/auth/register'];
-
-function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.some((path) => pathname.startsWith(path));
-}
+const publicPrefixes = ['/api/health', '/api/auth/login', '/api/auth/register', '/api/auth/refresh'];
+const protectedPrefixes = ['/api/products', '/api/users', '/api/auth-tokens', '/api/auth/me'];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (isPublicPath(pathname)) {
+  if (publicPrefixes.some(prefix => pathname.startsWith(prefix))) {
     return NextResponse.next();
   }
 
-  const tokenFromHeader = getTokenFromHeader(request.headers.get('authorization'));
-  const tokenFromCookie = request.cookies.get('token')?.value ?? null;
-  const token = tokenFromHeader ?? tokenFromCookie;
-
-  if (!token) {
-    if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-    const loginUrl = new URL('/login', request.url);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  try {
-    verifyToken(token);
+  if (pathname.startsWith('/api/products') && request.method === 'GET') {
     return NextResponse.next();
-  } catch {
-    if (pathname.startsWith('/api/')) {
+  }
+
+  if (protectedPrefixes.some(prefix => pathname.startsWith(prefix))) {
+    const token = getTokenFromHeader(request.headers.get('authorization'));
+    if (!token) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    const loginUrl = new URL('/login', request.url);
-    return NextResponse.redirect(loginUrl);
+    try {
+      verifyToken(token);
+      return NextResponse.next();
+    } catch (_error) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
   }
+
+  return NextResponse.next();
 }
-
-export const config = {
-  matcher: ['/api/:path*', '/dashboard', '/products/new']
-};

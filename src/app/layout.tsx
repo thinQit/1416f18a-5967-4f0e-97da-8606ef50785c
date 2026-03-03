@@ -1,22 +1,19 @@
-import './globals.css';
-import { AuthProvider } from '@/providers/AuthProvider';
-import { ToastProvider } from '@/providers/ToastProvider';
-import Navigation from '@/components/layout/Navigation';
+import "../styles/globals.css";
+import React from "react";
+import { AuthProvider } from "../providers/AuthProvider";
+import { ToastProvider } from "../providers/ToastProvider";
 
 export const metadata = {
-  title: 'Product Manager',
-  description: 'A simple product management web app with authentication and admin tools.'
+  title: "Storefront",
+  description: "Product management demo",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>
+      <body className="min-h-screen bg-gray-50 text-gray-900">
         <AuthProvider>
-          <ToastProvider>
-            <Navigation />
-            <main className="min-h-screen px-4 py-6 md:px-8">{children}</main>
-          </ToastProvider>
+          <ToastProvider>{children}</ToastProvider>
         </AuthProvider>
       </body>
     </html>

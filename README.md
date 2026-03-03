@@ -1,84 +1,79 @@
-# 1416f18a-5967-4f0e-97da-8606ef50785c
+# Product Management App
 
-A simple product management web app with user authentication, product CRUD, and an admin dashboard. Includes registration/login flows, product listing and add-product screens, JWT-based security, and a health endpoint for service monitoring.
+A simple product management web app with user registration/login, product CRUD, and a product listing dashboard.
 
 ## Features
-- JWT-based authentication (register/login)
-- Role-based admin controls for product management
+- User registration and login with JWT authentication
+- Secure password hashing with bcryptjs
 - Product listing with pagination and search
-- Admin dashboard statistics
-- Health endpoint for monitoring
+- Admin-only create, update, delete products
+- Admin dashboard with overview and low-stock alerts
+- Tailwind CSS-based responsive UI
+- Prisma ORM with SQLite for local development
 
 ## Tech Stack
 - Next.js 14 (App Router)
 - TypeScript
-- Prisma ORM (SQLite)
 - Tailwind CSS
+- Prisma ORM + SQLite
 - Jest + Testing Library
-- Playwright E2E
+- Playwright
 
 ## Prerequisites
 - Node.js 18+
-- npm
+- npm 9+
 
 ## Quick Start
-
-### macOS/Linux
 ```bash
 ./install.sh
-npm run dev
-```
-
-### Windows (PowerShell)
-```powershell
+# or on Windows
 ./install.ps1
+```
+Then run:
+```bash
 npm run dev
 ```
 
 ## Environment Variables
-Create a `.env` file using `.env.example`:
-```
-DATABASE_URL="file:./dev.db"
-JWT_SECRET="your-secret-key-min-32-chars-change-in-production"
-NEXT_PUBLIC_API_URL="http://localhost:3000"
-```
+See `.env.example` for required variables:
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `NEXT_PUBLIC_API_URL`
 
 ## Project Structure
 ```
 src/
-  app/               # Next.js app router pages and API routes
-  components/        # UI components and layout
-  lib/               # Utilities, prisma client, auth helpers
-  providers/         # React context providers
-  types/             # Shared TypeScript types
-prisma/              # Prisma schema and migrations
+  app/           # Next.js routes
+  app/api/       # API handlers
+  components/    # UI components
+  providers/     # App providers
+  lib/           # Utilities and Prisma client
+  types/         # Shared TypeScript types
+prisma/          # Prisma schema
 ```
 
 ## API Endpoints
 - `GET /api/health`
 - `POST /api/auth/register`
 - `POST /api/auth/login`
-- `GET /api/auth/me`
+- `POST /api/auth/refresh`
 - `GET /api/products`
 - `GET /api/products/:id`
 - `POST /api/products` (admin)
 - `PUT /api/products/:id` (admin)
 - `DELETE /api/products/:id` (admin)
+- `GET /api/users/me`
 
 ## Available Scripts
 - `npm run dev` - Start development server
-- `npm run build` - Generate Prisma client and build
+- `npm run build` - Build for production
 - `npm run start` - Start production server
-- `npm run lint` - Run linting
-- `npm run test` - Run unit tests
-- `npm run test:e2e` - Run Playwright E2E tests
+- `npm run lint` - Run ESLint
+- `npm run test` - Run Jest
+- `npm run test:e2e` - Run Playwright
 
 ## Testing
 ```bash
 npm run test
 npm run test:e2e
 ```
-
-## Notes
-- SQLite is used for local development. Update `DATABASE_URL` and Prisma provider for production databases.
-- JWT is returned on login and registration. Use the token for authenticated requests.

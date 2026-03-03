@@ -1,137 +1,148 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
+import Card, { CardContent } from '@/components/ui/Card';
 import Spinner from '@/components/ui/Spinner';
-import { api } from '@/lib/api';
-import { useAuth } from '@/providers/AuthProvider';
 import { useToast } from '@/providers/ToastProvider';
+import { useAuth } from '@/providers/AuthProvider';
 
-interface ProductResponse {
-  id: string;
-  name: string;
+interface ProductPayload {
+  title: string;
   description: string;
   price: number;
-  sku: string;
-  inventoryCount: number;
-  images: string[];
+  inventory: number;
+  imageUrl?: string;
 }
 
 export default function NewProductPage() {
   const router = useRouter();
-  const { user, loading: authLoading, isAdmin } = useAuth();
   const { toast } = useToast();
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [price, setPrice] = useState('');
-  const [sku, setSku] = useState('');
-  const [inventoryCount, setInventoryCount] = useState('');
-  const [images, setImages] = useState('');
+  const { isAdmin, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [form, setForm] = useState({ title: '', description: '', price: '', inventory: '', imageUrl: '' });
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!authLoading && (!user || !isAdmin)) {
-      router.push('/products');
-    }
-  }, [authLoading, isAdmin, router, user]);
+  const handleChange = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm(prev => ({ ...prev, [field]: e.target.value }));
+  };
 
-  const handleSubmit = async (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError('');
-    setLoading(true);
+    setError(null);
 
-    const imageList = images
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean);
+    const priceValue = Number(form.price);
+    const inventoryValue = Number(form.inventory);
 
-    const res = await api.post<ProductResponse>('/api/products', {
-      name,
-      description,
-      price: Number(price),
-      sku,
-      inventoryCount: Number(inventoryCount),
-      images: imageList
-    });
-
-    setLoading(false);
-
-    if (res.error || !res.data) {
-      const message = res.error || 'Unable to create product.';
-      setError(message);
-      toast(message, 'error');
+    if (!form.title.trim() || !form.description.trim()) {
+      setError('Title and description are required.');
       return;
     }
 
-    toast('Product created successfully!', 'success');
-    router.push('/products');
+    if (Number.isNaN(priceValue) || priceValue <= 0) {
+      setError('Price must be a positive number.');
+      return;
+    }
+
+    if (Number.isNaN(inventoryValue) || inventoryValue < 0) {
+      setError('Inventory must be zero or greater.');
+      return;
+    }
+
+    setLoading(true);
+    const token = localStorage.getItem('token');
+
+    const payload: ProductPayload = {
+      title: form.title.trim(),
+      description: form.description.trim(),
+      price: priceValue,
+      inventory: inventoryValue,
+      imageUrl: form.imageUrl.trim() || undefined
+    };
+
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string };
+        setError(err.error || 'Unable to create product.');
+        setLoading(false);
+        return;
+      }
+
+      toast('Product created', 'success');
+      setLoading(false);
+      router.push('/products');
+    } catch (_error) {
+      setLoading(false);
+      setError('Network error while creating product.');
+    }
   };
 
   if (authLoading) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
+      <div className="flex items-center justify-center py-10">
         <Spinner className="h-8 w-8" />
       </div>
     );
   }
 
-  return (
-    <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Add product</h1>
-        <p className="text-sm text-secondary">
-          Provide product details to add it to the catalog.
-        </p>
-      </div>
+  if (!isAdmin) {
+    return (
+      <Card>
+        <CardContent className="space-y-3">
+          <h1 className="text-xl font-semibold">Admin access required</h1>
+          <p className="text-sm text-muted-foreground">You need admin permissions to add products.</p>
+          <Link href="/login" className="text-sm font-medium text-primary hover:underline">
+            Go to login
+          </Link>
+        </CardContent>
+      </Card>
+    );
+  }
 
-      <form className="space-y-4" onSubmit={handleSubmit}>
+  return (
+    <div className="mx-auto max-w-lg space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-2xl font-semibold">Add Product</h1>
+        <p className="text-sm text-muted-foreground">Create a new catalog entry.</p>
+      </div>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input label="Title" value={form.title} onChange={handleChange('title')} required />
+        <Input label="Description" value={form.description} onChange={handleChange('description')} required />
         <Input
-          label="Product name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
+          label="Price"
+          type="number"
+          step="0.01"
+          value={form.price}
+          onChange={handleChange('price')}
           required
         />
         <Input
-          label="Description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          label="Inventory"
+          type="number"
+          value={form.inventory}
+          onChange={handleChange('inventory')}
           required
         />
-        <div className="grid gap-4 md:grid-cols-2">
-          <Input
-            label="Price"
-            type="number"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            required
-          />
-          <Input
-            label="Inventory count"
-            type="number"
-            value={inventoryCount}
-            onChange={(e) => setInventoryCount(e.target.value)}
-            required
-          />
-        </div>
-        <Input
-          label="SKU"
-          value={sku}
-          onChange={(e) => setSku(e.target.value)}
-          required
-        />
-        <Input
-          label="Image URLs"
-          value={images}
-          onChange={(e) => setImages(e.target.value)}
-          placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
-          helperText="Separate multiple URLs with commas."
-        />
-        {error && <p className="text-sm text-error">{error}</p>}
+        <Input label="Image URL" value={form.imageUrl} onChange={handleChange('imageUrl')} placeholder="https://" />
+        {error && (
+          <p className="text-sm text-error" role="alert" aria-live="polite">
+            {error}
+          </p>
+        )}
         <Button type="submit" loading={loading} fullWidth>
-          Create product
+          Add Product
         </Button>
       </form>
     </div>

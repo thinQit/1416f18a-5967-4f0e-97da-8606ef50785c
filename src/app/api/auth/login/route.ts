@@ -1,38 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
-import { signToken, verifyPassword } from '@/lib/auth';
+import jwt, { type Secret } from 'jsonwebtoken';
+import { db } from '@/lib/db';
+import { signToken, hashPassword, verifyPassword } from '@/lib/auth';
 
-const loginSchema = z.object({
-  email: z.string().email('Invalid email'),
-  password: z.string().min(1, 'Password is required')
+const schema = z.object({
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters')
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const payload = loginSchema.parse(body);
+    const data = schema.parse(body);
 
-    const user = await prisma.user.findUnique({ where: { email: payload.email } });
+    const user = await db.user.findUnique({ where: { email: data.email } });
     if (!user) {
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const valid = await verifyPassword(payload.password, user.passwordHash);
+    const valid = await verifyPassword(data.password, user.passwordHash);
     if (!valid) {
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const token = signToken({ sub: user.id, role: user.role });
-    const response = NextResponse.json({
-      success: true,
-      data: { token, user: { id: user.id, name: user.name, email: user.email, role: user.role } }
+    const accessToken = signToken({ sub: user.id, role: user.role });
+
+    const refreshSecret: Secret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'dev-refresh-secret-change-me';
+    const refreshToken = jwt.sign({ sub: user.id }, refreshSecret, { expiresIn: '7d' });
+    const refreshTokenHash = await hashPassword(refreshToken);
+
+    await db.authToken.deleteMany({ where: { userId: user.id } });
+    await db.authToken.create({
+      data: {
+        userId: user.id,
+        token: refreshTokenHash,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      }
     });
-    response.cookies.set('token', token, { httpOnly: true, sameSite: 'lax', path: '/' });
-    return response;
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        accessToken,
+        refreshToken,
+        expiresIn: 86400
+      }
+    });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.issues[0]?.message || 'Invalid input' }, { status: 400 });
+      return NextResponse.json({ success: false, error: error.errors.map(err => err.message).join(', ') }, { status: 400 });
     }
     return NextResponse.json({ success: false, error: 'Login failed' }, { status: 500 });
   }

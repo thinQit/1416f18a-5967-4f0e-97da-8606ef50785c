@@ -1,40 +1,45 @@
-import { HTMLAttributes, ReactNode } from 'react';
-import { cn } from '@/lib/utils';
+import React from "react";
 
-interface CardProps extends HTMLAttributes<HTMLDivElement> {
-  children: ReactNode;
-}
+export type CardProps = React.HTMLAttributes<HTMLDivElement>;
 
-export function Card({ children, className, ...props }: CardProps) {
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(function Card(
+  { className, ...props },
+  ref
+) {
   return (
-    <div className={cn('rounded-lg border border-border bg-white shadow-sm', className)} {...props}>
-      {children}
-    </div>
+    <div
+      ref={ref}
+      className={
+        "rounded-lg border border-gray-200 bg-white text-gray-900 shadow-sm " +
+        (className ?? "")
+      }
+      {...props}
+    />
   );
-}
+});
 
-export function CardHeader({ children, className, ...props }: CardProps) {
-  return (
-    <div className={cn('border-b border-border px-4 py-3', className)} {...props}>
-      {children}
-    </div>
-  );
-}
+export const CardHeader = React.forwardRef<HTMLDivElement, CardProps>(
+  function CardHeader({ className, ...props }, ref) {
+    return (
+      <div
+        ref={ref}
+        className={"border-b border-gray-100 px-4 py-3 " + (className ?? "")}
+        {...props}
+      />
+    );
+  }
+);
 
-export function CardContent({ children, className, ...props }: CardProps) {
-  return (
-    <div className={cn('px-4 py-3', className)} {...props}>
-      {children}
-    </div>
-  );
-}
-
-export function CardFooter({ children, className, ...props }: CardProps) {
-  return (
-    <div className={cn('border-t border-border px-4 py-3', className)} {...props}>
-      {children}
-    </div>
-  );
-}
+export const CardContent = React.forwardRef<HTMLDivElement, CardProps>(
+  function CardContent({ className, ...props }, ref) {
+    return (
+      <div
+        ref={ref}
+        className={"px-4 py-3 " + (className ?? "")}
+        {...props}
+      />
+    );
+  }
+);
 
 export default Card;

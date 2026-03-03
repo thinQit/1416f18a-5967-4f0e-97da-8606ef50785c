@@ -2,77 +2,94 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/providers/AuthProvider';
+import { usePathname } from 'next/navigation';
 import Button from '@/components/ui/Button';
+import { useAuth } from '@/providers/AuthProvider';
+import { cn } from '@/lib/utils';
 
-interface NavLink {
-  href: string;
-  label: string;
-}
+const links = [
+  { href: '/products', label: 'Products' },
+  { href: '/admin', label: 'Admin' }
+];
 
 export function Navigation() {
-  const { user, logout, isAdmin } = useAuth();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
-
-  const links: NavLink[] = [
-    { href: '/products', label: 'Products' },
-    { href: '/products/new', label: 'Add Product' },
-    { href: '/dashboard', label: 'Dashboard' }
-  ];
+  const { user, logout, loading, isAuthenticated, isAdmin } = useAuth();
 
   return (
-    <nav className="border-b border-border bg-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 md:px-8">
-        <Link href="/" className="text-lg font-semibold">Product Manager</Link>
+    <header className="border-b border-border bg-background">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4">
+        <Link href="/" className="text-lg font-semibold">ProductManager</Link>
         <button
-          className="md:hidden"
+          type="button"
+          className="sm:hidden"
           aria-label="Toggle navigation"
-          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          onClick={() => setOpen(prev => !prev)}
         >
-          ☰
+          <span className="block h-0.5 w-6 bg-foreground" />
+          <span className="mt-1 block h-0.5 w-6 bg-foreground" />
+          <span className="mt-1 block h-0.5 w-6 bg-foreground" />
         </button>
-        <div className="hidden items-center gap-4 md:flex">
-          {links.map((link) => (
-            <Link key={link.href} href={link.href} className="text-sm text-foreground hover:text-primary">
+        <nav className="hidden items-center gap-6 sm:flex">
+          {links.map(link => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                'text-sm font-medium hover:text-primary',
+                pathname === link.href && 'text-primary'
+              )}
+            >
               {link.label}
             </Link>
           ))}
-          {!user && (
-            <div className="flex gap-2">
-              <Link className="text-sm text-foreground hover:text-primary" href="/login">Login</Link>
-              <Link className="text-sm text-foreground hover:text-primary" href="/register">Register</Link>
-            </div>
-          )}
-          {user && (
+          {!loading && !isAuthenticated && (
             <div className="flex items-center gap-2">
-              <span className="text-sm">{user.name}</span>
-              {isAdmin && <span className="rounded bg-muted px-2 py-1 text-xs">Admin</span>}
-              <Button variant="ghost" size="sm" onClick={logout}>Logout</Button>
+              <Link href="/login" className="text-sm font-medium hover:text-primary">Login</Link>
+              <Link href="/register" className="text-sm font-medium hover:text-primary">Register</Link>
             </div>
           )}
-        </div>
+          {!loading && isAuthenticated && (
+            <div className="flex items-center gap-3">
+              <span className="text-sm">{user?.name}</span>
+              <Button type="button" size="sm" variant="ghost" onClick={logout}>Logout</Button>
+              {isAdmin && <Link href="/products/new" className="text-sm font-medium hover:text-primary">Add Product</Link>}
+            </div>
+          )}
+        </nav>
       </div>
       {open && (
-        <div className="border-t border-border px-4 py-3 md:hidden">
+        <div className="border-t border-border px-4 py-3 sm:hidden">
           <div className="flex flex-col gap-3">
-            {links.map((link) => (
-              <Link key={link.href} href={link.href} className="text-sm text-foreground hover:text-primary">
+            {links.map(link => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn('text-sm font-medium', pathname === link.href && 'text-primary')}
+                onClick={() => setOpen(false)}
+              >
                 {link.label}
               </Link>
             ))}
-            {!user && (
+            {!loading && !isAuthenticated && (
               <div className="flex flex-col gap-2">
-                <Link className="text-sm text-foreground hover:text-primary" href="/login">Login</Link>
-                <Link className="text-sm text-foreground hover:text-primary" href="/register">Register</Link>
+                <Link href="/login" className="text-sm font-medium" onClick={() => setOpen(false)}>Login</Link>
+                <Link href="/register" className="text-sm font-medium" onClick={() => setOpen(false)}>Register</Link>
               </div>
             )}
-            {user && (
-              <Button variant="ghost" size="sm" onClick={logout}>Logout</Button>
+            {!loading && isAuthenticated && (
+              <div className="flex flex-col gap-2">
+                <span className="text-sm">{user?.name}</span>
+                <Button type="button" size="sm" variant="ghost" onClick={logout}>Logout</Button>
+                {isAdmin && <Link href="/products/new" className="text-sm font-medium" onClick={() => setOpen(false)}>Add Product</Link>}
+              </div>
             )}
           </div>
         </div>
       )}
-    </nav>
+    </header>
   );
 }
 

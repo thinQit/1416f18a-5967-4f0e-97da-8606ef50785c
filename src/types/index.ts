@@ -111,16 +111,3 @@ export interface DashboardStats {
 export type TaskStatus = 'todo' | 'in_progress' | 'done';
 export type TaskPriority = 'low' | 'medium' | 'high';
 export type UserRole = 'customer' | 'admin';
-
-export interface Product {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  sku: string;
-  inventoryCount: number;
-  images: string[];
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-}

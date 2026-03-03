@@ -1,57 +1,49 @@
-'use client';
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+"use client";
 
-type ToastType = 'success' | 'error' | 'warning' | 'info';
+import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
 
-interface Toast {
-  id: string;
-  message: string;
-  type: ToastType;
-  variant?: ToastType;
-}
+type Toast = { id: string; message: string };
 
-interface ToastContextType {
+type ToastContextValue = {
   toasts: Toast[];
-  notify: (message: string, type?: ToastType) => void;
-  toast: (message: string, typeOrOptions?: ToastType | { variant?: ToastType; type?: ToastType }) => void;
-  addToast: (message: string, type?: ToastType) => void;
-  dismiss: (id: string) => void;
-}
+  showToast: (message: string) => void;
+  toast: (message: string) => void;
+  removeToast: (id: string) => void;
+};
 
-const ToastContext = createContext<ToastContextType | undefined>(undefined);
+const ToastContext = createContext<ToastContextValue | undefined>(undefined);
 
-export function ToastProvider({ children }: { children: ReactNode }) {
+export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
-  const notify = useCallback((message: string, type: ToastType = 'info') => {
-    const id = Math.random().toString(36).slice(2);
-    setToasts(prev => [...prev, { id, message, type, variant: type }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 5000);
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const toast = useCallback((message: string, typeOrOptions?: ToastType | { variant?: ToastType; type?: ToastType }) => {
-    const type = typeof typeOrOptions === 'string'
-      ? typeOrOptions
-      : (typeOrOptions?.variant || typeOrOptions?.type || 'info');
-    notify(message, type);
-  }, [notify]);
+  const showToast = useCallback(
+    (message: string) => {
+      const id = Math.random().toString(36).slice(2);
+      setToasts((prev) => [...prev, { id, message }]);
+      setTimeout(() => removeToast(id), 3000);
+    },
+    [removeToast]
+  );
 
-  const dismiss = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
+  const value = useMemo(
+    () => ({ toasts, showToast, toast: showToast, removeToast }),
+    [toasts, showToast, removeToast]
+  );
 
   return (
-    <ToastContext.Provider value={{ toasts, notify, toast, addToast: notify, dismiss }}>
+    <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-        {toasts.map(t => (
-          <div key={t.id} className={`px-4 py-3 rounded-lg shadow-lg text-white ${
-            t.type === 'success' ? 'bg-green-500' :
-            t.type === 'error' ? 'bg-red-500' :
-            t.type === 'warning' ? 'bg-yellow-500' : 'bg-blue-500'
-          }`}>
-            {t.message}
-            <button onClick={() => dismiss(t.id)} className="ml-2 font-bold" aria-label="Dismiss">×</button>
+      <div className="fixed right-4 top-4 z-50 space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className="rounded bg-gray-900 px-3 py-2 text-sm text-white shadow"
+          >
+            {toast.message}
           </div>
         ))}
       </div>
@@ -60,9 +52,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 export function useToast() {
-  const context = useContext(ToastContext);
-  if (!context) throw new Error('useToast must be used within ToastProvider');
-  return context;
+  const ctx = useContext(ToastContext);
+  if (!ctx) {
+    throw new Error("useToast must be used within ToastProvider");
+  }
+  return ctx;
 }
-
-export default ToastProvider;

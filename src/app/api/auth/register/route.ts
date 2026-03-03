@@ -1,44 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
-import { hashPassword, signToken } from '@/lib/auth';
+import { db } from '@/lib/db';
+import { hashPassword } from '@/lib/auth';
 
-const registerSchema = z.object({
+const schema = z.object({
   name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters')
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(8, 'Password must be at least 8 characters')
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const payload = registerSchema.parse(body);
+    const data = schema.parse(body);
 
-    const existing = await prisma.user.findUnique({ where: { email: payload.email } });
+    const existing = await db.user.findUnique({ where: { email: data.email } });
     if (existing) {
       return NextResponse.json({ success: false, error: 'Email already registered' }, { status: 400 });
     }
 
-    const passwordHash = await hashPassword(payload.password);
-    const user = await prisma.user.create({
+    const passwordHash = await hashPassword(data.password);
+    const user = await db.user.create({
       data: {
-        name: payload.name,
-        email: payload.email,
+        name: data.name,
+        email: data.email,
         passwordHash,
         role: 'user'
       }
     });
 
-    const token = signToken({ sub: user.id, role: user.role });
-    const response = NextResponse.json({
-      success: true,
-      data: { user: { id: user.id, name: user.name, email: user.email, role: user.role }, token }
-    });
-    response.cookies.set('token', token, { httpOnly: true, sameSite: 'lax', path: '/' });
-    return response;
+    return NextResponse.json({ success: true, data: { id: user.id, email: user.email } }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.issues[0]?.message || 'Invalid input' }, { status: 400 });
+      return NextResponse.json({ success: false, error: error.errors.map(err => err.message).join(', ') }, { status: 400 });
     }
     return NextResponse.json({ success: false, error: 'Registration failed' }, { status: 500 });
   }

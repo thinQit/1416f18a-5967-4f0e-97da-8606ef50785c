@@ -1,34 +1,111 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
-
-interface ApiResponse<T> {
+export type ApiResponse<T> = {
   data: T | null;
-  error: string | null;
+  error?: string;
+  status?: number;
+};
+
+let authToken: string | null = null;
+
+const readStoredToken = () => {
+  if (authToken) return authToken;
+  if (typeof window !== "undefined") {
+    authToken = window.localStorage.getItem("authToken");
+  }
+  return authToken;
+};
+
+export const setAuthToken = (token: string | null) => {
+  authToken = token;
+  if (typeof window !== "undefined") {
+    if (token) {
+      window.localStorage.setItem("authToken", token);
+    } else {
+      window.localStorage.removeItem("authToken");
+    }
+  }
+};
+
+const buildHeaders = (custom?: HeadersInit, includeJson?: boolean) => {
+  const headers = new Headers(custom);
+  const token = readStoredToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  if (includeJson && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  return headers;
+};
+
+async function request<T>(url: string, options: RequestInit): Promise<ApiResponse<T>> {
+  const res = await fetch(url, options);
+  const contentType = res.headers.get("content-type") ?? "";
+  let data: T | null = null;
+
+  if (contentType.includes("application/json")) {
+    data = (await res.json()) as T;
+  } else {
+    const text = await res.text();
+    data = (text as unknown) as T;
+  }
+
+  if (!res.ok) {
+    const error = typeof data === "string" ? data : (data as any)?.error ?? res.statusText;
+    return { data, error, status: res.status };
+  }
+
+  return { data, status: res.status };
 }
 
-async function apiFetch<T>(url: string, options?: RequestInit): Promise<ApiResponse<T>> {
-  try {
-    const res = await fetch(`${BASE_URL}${url}`, {
-      headers: { 'Content-Type': 'application/json', ...options?.headers },
-      credentials: 'include',
-      ...options,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      return { data: null, error: err.error || err.message || res.statusText };
-    }
-    const data = await res.json();
-    return { data, error: null };
-  } catch (e) {
-    return { data: null, error: e instanceof Error ? e.message : 'Network error' };
-  }
+export async function apiGet<T>(url: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  return request<T>(url, {
+    ...options,
+    method: "GET",
+    headers: buildHeaders(options.headers, false),
+  });
+}
+
+export async function apiPost<T, B>(url: string, body: B, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  return request<T>(url, {
+    ...options,
+    method: "POST",
+    headers: buildHeaders(options.headers, !isFormData),
+    body: isFormData ? (body as FormData) : JSON.stringify(body),
+  });
+}
+
+export async function apiPut<T, B>(url: string, body: B, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  return request<T>(url, {
+    ...options,
+    method: "PUT",
+    headers: buildHeaders(options.headers, !isFormData),
+    body: isFormData ? (body as FormData) : JSON.stringify(body),
+  });
+}
+
+export async function apiDelete<T, B = undefined>(
+  url: string,
+  body?: B,
+  options: RequestInit = {}
+): Promise<ApiResponse<T>> {
+  const hasBody = typeof body !== "undefined";
+  const isFormData = hasBody && typeof FormData !== "undefined" && body instanceof FormData;
+  return request<T>(url, {
+    ...options,
+    method: "DELETE",
+    headers: buildHeaders(options.headers, hasBody && !isFormData),
+    body: hasBody ? (isFormData ? (body as FormData) : JSON.stringify(body)) : undefined,
+  });
 }
 
 export const api = {
-  get: <T>(url: string) => apiFetch<T>(url, { method: 'GET' }),
-  post: <T>(url: string, body: unknown) => apiFetch<T>(url, { method: 'POST', body: JSON.stringify(body) }),
-  put: <T>(url: string, body: unknown) => apiFetch<T>(url, { method: 'PUT', body: JSON.stringify(body) }),
-  patch: <T>(url: string, body: unknown) => apiFetch<T>(url, { method: 'PATCH', body: JSON.stringify(body) }),
-  delete: <T>(url: string) => apiFetch<T>(url, { method: 'DELETE' }),
+  get: apiGet,
+  post: apiPost,
+  put: apiPut,
+  delete: apiDelete,
+  setToken: setAuthToken,
+  clearToken: () => setAuthToken(null),
+  getToken: readStoredToken,
 };
-
-export default api;

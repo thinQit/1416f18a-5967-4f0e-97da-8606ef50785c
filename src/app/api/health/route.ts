@@ -1,11 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { NextResponse } from 'next/server';
 
-export async function GET(_request: NextRequest) {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    return NextResponse.json({ success: true, data: { status: 'ok', details: { db: 'ok' } } });
-  } catch {
-    return NextResponse.json({ success: true, data: { status: 'degraded', details: { db: 'error' } } });
-  }
+export async function GET() {
+  return NextResponse.json({
+    success: true,
+    data: {
+      status: 'ok',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    }
+  });
 }

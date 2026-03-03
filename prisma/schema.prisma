@@ -8,30 +8,35 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
+  id           String      @id @default(uuid())
   name         String
-  email        String   @unique
+  email        String      @unique
   passwordHash String
-  role         String   @default("user")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  products     Product[]
+  role         String      @default("user")
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  authTokens   AuthToken[]
 }
 
 model Product {
-  id             String   @id @default(uuid())
-  name           String
-  description    String
-  price          Float
-  sku            String   @unique
-  inventoryCount Int
-  images         String   @default("[]")
-  createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  isDeleted      Boolean  @default(false)
-  creator        User     @relation(fields: [createdBy], references: [id])
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  price       Float
+  inventory   Int
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  @@index([title])
+  @@index([createdAt])
+}
 
-  @@index([name])
-  @@index([sku])
+model AuthToken {
+  id        String   @id @default(uuid())
+  token     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
 }

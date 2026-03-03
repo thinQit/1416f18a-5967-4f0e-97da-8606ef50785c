@@ -1,13 +1,13 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '../src/lib/auth';
 
-const prisma = new PrismaClient();
+const db = new PrismaClient();
 
 async function main() {
-  const adminPassword = await bcrypt.hash('Admin123!', 10);
-  const userPassword = await bcrypt.hash('User123!', 10);
+  const adminPassword = await hashPassword('AdminPass123');
+  const userPassword = await hashPassword('UserPass123');
 
-  const admin = await prisma.user.create({
+  const admin = await db.user.create({
     data: {
       name: 'Admin User',
       email: 'admin@example.com',
@@ -16,10 +16,10 @@ async function main() {
     }
   });
 
-  const user = await prisma.user.create({
+  await db.user.create({
     data: {
-      name: 'Jane Customer',
-      email: 'user@example.com',
+      name: 'Jordan Lee',
+      email: 'jordan@example.com',
       passwordHash: userPassword,
       role: 'user'
     }
@@ -27,56 +27,47 @@ async function main() {
 
   const products = [
     {
-      name: 'Aurora Desk Lamp',
-      description: 'Warm LED desk lamp with adjustable brightness and USB charging.',
-      price: 49.99,
-      sku: 'LAMP-AUR-001',
-      inventoryCount: 120,
-      images: ['https://images.example.com/lamp-1.jpg']
+      title: 'Wireless Headphones',
+      description: 'Noise-cancelling over-ear headphones with 30-hour battery life.',
+      price: 199.99,
+      inventory: 12,
+      imageUrl: 'https://images.unsplash.com/photo-1518442708563-e1ae3cf6b74a'
     },
     {
-      name: 'Nimbus Wireless Headphones',
-      description: 'Noise-cancelling headphones with 30-hour battery life.',
-      price: 129.5,
-      sku: 'AUDIO-NIM-002',
-      inventoryCount: 80,
-      images: ['https://images.example.com/headphones-1.jpg']
+      title: 'Smart Fitness Watch',
+      description: 'Track workouts, sleep, and heart rate with a sleek wearable.',
+      price: 149.5,
+      inventory: 8,
+      imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30'
     },
     {
-      name: 'Summit Travel Backpack',
-      description: 'Lightweight backpack with weather-resistant fabric and laptop sleeve.',
-      price: 89.0,
-      sku: 'PACK-SUM-003',
-      inventoryCount: 60,
-      images: ['https://images.example.com/backpack-1.jpg']
+      title: 'Portable Bluetooth Speaker',
+      description: 'Water-resistant speaker with deep bass and 12-hour playtime.',
+      price: 79.0,
+      inventory: 20,
+      imageUrl: 'https://images.unsplash.com/photo-1512446816042-444d641267d4'
+    },
+    {
+      title: 'Ergonomic Office Chair',
+      description: 'Adjustable lumbar support and breathable mesh for all-day comfort.',
+      price: 249.99,
+      inventory: 5,
+      imageUrl: 'https://images.unsplash.com/photo-1519710164239-da123dc03ef4'
+    },
+    {
+      title: 'Minimalist Desk Lamp',
+      description: 'LED lamp with adjustable brightness and a compact footprint.',
+      price: 45.25,
+      inventory: 18,
+      imageUrl: 'https://images.unsplash.com/photo-1507477338202-487281e6c27e'
     }
   ];
 
   for (const product of products) {
-    await prisma.product.create({
-      data: {
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        sku: product.sku,
-        inventoryCount: product.inventoryCount,
-        images: JSON.stringify(product.images),
-        createdBy: admin.id
-      }
-    });
+    await db.product.create({ data: product });
   }
 
-  await prisma.product.create({
-    data: {
-      name: 'Harbor Ceramic Mug',
-      description: 'Minimalist ceramic mug with 12oz capacity.',
-      price: 18.75,
-      sku: 'MUG-HAR-004',
-      inventoryCount: 150,
-      images: JSON.stringify(['https://images.example.com/mug-1.jpg']),
-      createdBy: user.id
-    }
-  });
+  console.log('Seeded admin:', admin.email);
 }
 
 main()
@@ -85,5 +76,5 @@ main()
     process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect();
+    await db.$disconnect();
   });
