@@ -16,8 +16,8 @@ data "azurerm_container_registry" "acr" {
 locals {
   raw_container_app_name = var.container_app_name
   lower_name             = lower(local.raw_container_app_name)
-  sanitized_name         = regexreplace(local.lower_name, "[^a-z0-9-]", "-")
-  collapsed_name         = regexreplace(local.sanitized_name, "-{2,}", "-")
+  sanitized_name         = replace(local.lower_name, "/[^a-z0-9-]/", "-")
+  collapsed_name         = replace(local.sanitized_name, "/-{2,}/", "-")
   trimmed_name           = trim(local.collapsed_name, "-")
   truncated_name         = substr(local.trimmed_name, 0, 32)
   container_app_name     = can(regexmatch("^[a-z]", local.truncated_name)) ? local.truncated_name : "a${substr(local.truncated_name, 0, 31)}"
@@ -63,22 +63,5 @@ resource "azurerm_container_app" "app" {
 
       env {
         name  = "NODE_ENV"
-        value = "production"
-      }
-      env {
-        name  = "PORT"
-        value = "3000"
-      }
-      env {
-        name  = "HOSTNAME"
-        value = "0.0.0.0"
-      }
-    }
-  }
-
-  lifecycle {
-    ignore_changes = [
-      template[0].container[0].image
-    ]
-  }
-}
+     
+... [truncated]
