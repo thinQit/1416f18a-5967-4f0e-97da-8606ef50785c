@@ -1,12 +1,21 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const full = searchParams.get('full') === 'true';
+const schema = z.object({});
 
-  const data = full
-    ? { status: 'ok', uptime_seconds: Math.floor(process.uptime()), version: '1.0.0', timestamp: new Date().toISOString() }
-    : { status: 'ok', uptime_seconds: Math.floor(process.uptime()), version: '1.0.0' };
-
-  return NextResponse.json({ success: true, data });
+export async function GET(_request: NextRequest) {
+  try {
+    schema.parse({});
+    return NextResponse.json({
+      success: true,
+      data: {
+        status: "ok",
+        uptime_seconds: process.uptime(),
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Health check failed";
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
 }

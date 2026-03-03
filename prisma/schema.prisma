@@ -8,37 +8,43 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(uuid())
+  id            String        @id @default(cuid())
   name          String
-  email         String    @unique
+  email         String        @unique
   password_hash String
-  role          String    @default("user")
-  created_at    DateTime  @default(now())
+  role          String        @default("user")
+  created_at    DateTime      @default(now())
   products      Product[]
-  sessions      Session[]
+  sessions      AuthSession[]
 }
 
 model Product {
-  id                 String   @id @default(uuid())
-  name               String
-  description        String
-  price              Float
-  quantity           Int      @default(0)
-  images             String   @default("[]")
-  created_by_user_id String
-  created_at         DateTime @default(now())
-  creator            User     @relation(fields: [created_by_user_id], references: [id])
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  price       Float
+  currency    String
+  stock       Int
+  images      String   @default("[]")
+  category    String
+  created_by  String
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
 
-  @@index([created_by_user_id])
-  @@index([name])
+  creator     User     @relation(fields: [created_by], references: [id])
+
+  @@index([category])
+  @@index([created_at])
+  @@index([created_by])
 }
 
-model Session {
-  id                 String   @id @default(uuid())
-  user_id            String
-  refresh_token_hash String
-  expires_at         DateTime
-  user               User     @relation(fields: [user_id], references: [id])
+model AuthSession {
+  id         String   @id @default(cuid())
+  token      String   @unique
+  expires_at DateTime
+  created_at DateTime @default(now())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id])
 
   @@index([user_id])
 }

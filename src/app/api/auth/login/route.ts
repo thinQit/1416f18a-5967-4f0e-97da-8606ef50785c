@@ -1,56 +1,53 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import crypto from 'crypto';
-import db from '@/lib/db';
-import { signToken, verifyPassword } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import db from "@/lib/db";
+import { signToken, verifyPassword } from "@/lib/auth";
 
 const schema = z.object({
   email: z.string().email(),
-  password: z.string().min(8)
+  password: z.string().min(6)
 });
-
-function generateRefreshToken(): string {
-  return crypto.randomBytes(48).toString('hex');
-}
-
-function hashRefreshToken(token: string): string {
-  return crypto.createHash('sha256').update(token).digest('hex');
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const payload = schema.parse(await request.json());
-    const user = await db.user.findUnique({ where: { email: payload.email } });
+    const body = schema.parse(await request.json());
+
+    const user = await db.user.findUnique({ where: { email: body.email } });
     if (!user) {
-      return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
+      return NextResponse.json({ success: false, error: "Invalid credentials" }, { status: 401 });
     }
 
-    const valid = await verifyPassword(payload.password, user.password_hash);
-    if (!valid) {
-      return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
+    const isValid = await verifyPassword(body.password, user.password_hash);
+    if (!isValid) {
+      return NextResponse.json({ success: false, error: "Invalid credentials" }, { status: 401 });
     }
 
-    const token = signToken({ userId: user.id, role: user.role });
-    const refreshToken = generateRefreshToken();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const token = signToken({
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      name: user.name
+    });
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-    await db.session.create({
+    await db.authSession.create({
       data: {
-        user_id: user.id,
-        refresh_token_hash: hashRefreshToken(refreshToken),
-        expires_at: expiresAt
+        token,
+        expires_at: expiresAt,
+        user_id: user.id
       }
     });
 
     return NextResponse.json({
       success: true,
       data: {
-        user: { id: user.id, name: user.name, email: user.email, role: user.role, created_at: user.created_at },
         token,
-        refreshToken
+        expires_at: expiresAt.toISOString(),
+        user: { id: user.id, name: user.name, email: user.email, role: user.role }
       }
     });
-  } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Invalid request";
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }

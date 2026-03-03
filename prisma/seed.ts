@@ -1,82 +1,94 @@
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { PrismaClient } from "@prisma/client";
+import { hashPassword } from "../src/lib/auth";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const adminPassword = await bcrypt.hash('AdminPass123!', 10);
-  const userPassword = await bcrypt.hash('UserPass123!', 10);
+  await prisma.authSession.deleteMany();
+  await prisma.product.deleteMany();
+  await prisma.user.deleteMany();
+
+  const adminPassword = await hashPassword("AdminPass123!");
+  const userPassword = await hashPassword("UserPass123!");
 
   const admin = await prisma.user.create({
     data: {
-      name: 'Admin User',
-      email: 'admin@example.com',
+      name: "Admin User",
+      email: "admin@prodboard.com",
       password_hash: adminPassword,
-      role: 'admin'
+      role: "admin"
     }
   });
 
   const user = await prisma.user.create({
     data: {
-      name: 'Jamie Doe',
-      email: 'user@example.com',
+      name: "Regular User",
+      email: "user@prodboard.com",
       password_hash: userPassword,
-      role: 'user'
+      role: "user"
     }
   });
 
-  const products = [
-    {
-      name: 'Studio Backpack',
-      description: 'Durable backpack with multiple compartments and ergonomic straps.',
-      price: 96,
-      quantity: 42,
-      images: ['https://images.unsplash.com/photo-1521572163474-6864f9cf17ab']
-    },
-    {
-      name: 'Evergreen Chair',
-      description: 'Modern lounge chair with soft upholstery and solid wood frame.',
-      price: 240,
-      quantity: 18,
-      images: ['https://images.unsplash.com/photo-1519710164239-da123dc03ef4']
-    },
-    {
-      name: 'Aurora Lamp',
-      description: 'Minimalist desk lamp with adjustable neck and warm lighting.',
-      price: 68,
-      quantity: 60,
-      images: ['https://images.unsplash.com/photo-1519710164239-da123dc03ef4']
-    },
-    {
-      name: 'Nimbus Desk',
-      description: 'Spacious desk with cable management and smooth matte finish.',
-      price: 320,
-      quantity: 9,
-      images: ['https://images.unsplash.com/photo-1493666438817-866a91353ca9']
+  await prisma.product.create({
+    data: {
+      name: "Aurora Wireless Headphones",
+      description: "Noise-cancelling wireless headphones with 30-hour battery life.",
+      price: 189.99,
+      currency: "USD",
+      stock: 42,
+      images: JSON.stringify([
+        "https://images.example.com/products/headphones-1.jpg",
+        "https://images.example.com/products/headphones-2.jpg"
+      ]),
+      category: "Electronics",
+      created_by: admin.id
     }
-  ];
-
-  for (const product of products) {
-    await prisma.product.create({
-      data: {
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        quantity: product.quantity,
-        images: JSON.stringify(product.images),
-        created_by_user_id: admin.id
-      }
-    });
-  }
+  });
 
   await prisma.product.create({
     data: {
-      name: 'Coastal Mug',
-      description: 'Ceramic mug with coastal glaze pattern and comfortable grip.',
-      price: 24,
-      quantity: 120,
-      images: JSON.stringify(['https://images.unsplash.com/photo-1495474472287-4d71bcdd2085']),
-      created_by_user_id: user.id
+      name: "Nimbus Smartwatch",
+      description: "Smartwatch with health tracking, GPS, and customizable faces.",
+      price: 249.0,
+      currency: "USD",
+      stock: 28,
+      images: JSON.stringify([
+        "https://images.example.com/products/smartwatch-1.jpg"
+      ]),
+      category: "Wearables",
+      created_by: admin.id
+    }
+  });
+
+  await prisma.product.create({
+    data: {
+      name: "Summit Hiking Backpack",
+      description: "Lightweight 35L backpack with ergonomic support and waterproof lining.",
+      price: 129.5,
+      currency: "USD",
+      stock: 65,
+      images: JSON.stringify([
+        "https://images.example.com/products/backpack-1.jpg",
+        "https://images.example.com/products/backpack-2.jpg"
+      ]),
+      category: "Outdoor",
+      created_by: admin.id
+    }
+  });
+
+  await prisma.authSession.create({
+    data: {
+      token: "seed-admin-token",
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      user_id: admin.id
+    }
+  });
+
+  await prisma.authSession.create({
+    data: {
+      token: "seed-user-token",
+      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      user_id: user.id
     }
   });
 }

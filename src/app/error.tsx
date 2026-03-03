@@ -1,12 +1,17 @@
 'use client';
 
-export default function ErrorPage() {
+export default function Error({ reset }: { reset: () => void }) {
   return (
-    <main className="min-h-screen bg-background px-6 py-16">
-      <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-white p-8 text-center">
-        <h1 className="text-2xl font-bold text-foreground">Something went wrong</h1>
-        <p className="mt-2 text-secondary/70">Please refresh the page or try again later.</p>
-      </div>
-    </main>
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-muted text-center">
+      <h2 className="text-2xl font-semibold text-foreground">Something went wrong</h2>
+      <p className="text-foreground/70">Please try again or return later.</p>
+      <button
+        type="button"
+        onClick={reset}
+        className="rounded-md bg-primary px-4 py-2 text-white"
+      >
+        Try again
+      </button>
+    </div>
   );
 }

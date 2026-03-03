@@ -1,37 +1,32 @@
-import * as React from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-export type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "outline";
-  size?: "sm" | "md" | "lg";
+export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "primary" | "outline";
+  children?: ReactNode;
 };
 
-const baseStyles =
-  "inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none";
-
-const variantStyles: Record<NonNullable<ButtonProps["variant"]>, string> = {
-  primary: "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-500",
-  secondary:
-    "bg-gray-100 text-gray-900 hover:bg-gray-200 focus-visible:ring-gray-400",
-  outline:
-    "border border-gray-300 text-gray-900 hover:bg-gray-50 focus-visible:ring-gray-400",
-};
-
-const sizeStyles: Record<NonNullable<ButtonProps["size"]>, string> = {
-  sm: "h-8 px-3 text-sm",
-  md: "h-10 px-4 text-sm",
-  lg: "h-12 px-6 text-base",
-};
-
-export default function Button({
-  className = "",
+export function Button({
   variant = "primary",
-  size = "md",
+  className = "",
+  disabled,
+  children,
   ...props
 }: ButtonProps) {
+  const baseClasses =
+    "inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-60";
+  const variantClasses =
+    variant === "outline"
+      ? "border border-foreground/20 text-foreground hover:bg-foreground/5"
+      : "bg-primary text-primary-foreground hover:bg-primary/90";
+
   return (
     <button
-      className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+      type={props.type ?? "button"}
+      className={`${baseClasses} ${variantClasses} ${className}`}
+      disabled={disabled}
       {...props}
-    />
+    >
+      {children}
+    </button>
   );
 }

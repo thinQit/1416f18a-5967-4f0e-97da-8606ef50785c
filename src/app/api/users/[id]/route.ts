@@ -1,103 +1,154 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import db from '@/lib/db';
-import { getTokenFromHeader, verifyToken, hashPassword } from '@/lib/auth';
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import db from "@/lib/db";
+import { getTokenFromHeader, verifyToken, hashPassword } from "@/lib/auth";
 
-const updateSchema = z.object({
-  name: z.string().min(2).optional(),
-  email: z.string().email().optional(),
-  password: z.string().min(8).optional()
+const paramsSchema = z.object({
+  id: z.string().min(1)
 });
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+const updateSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  password: z.string().min(6).optional(),
+  role: z.enum(["user", "admin"]).optional()
+});
+
+type TokenPayload = {
+  id: string;
+  email: string;
+  role: string;
+  name: string;
+};
+
+function getPayload(request: NextRequest): TokenPayload | null {
+  const token = getTokenFromHeader(request.headers.get("authorization"));
+  if (!token) return null;
   try {
-    const token = getTokenFromHeader(request.headers.get('authorization'));
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
     const payload = verifyToken(token);
-    const userId = typeof payload.userId === 'string' ? payload.userId : null;
-    const role = typeof payload.role === 'string' ? payload.role : 'user';
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    if (typeof payload !== "object" || payload === null) return null;
+    const values = payload as Record<string, unknown>;
+    if (
+      typeof values.id === "string" &&
+      typeof values.email === "string" &&
+      typeof values.role === "string" &&
+      typeof values.name === "string"
+    ) {
+      return {
+        id: values.id,
+        email: values.email,
+        role: values.role,
+        name: values.name
+      };
     }
-
-    if (userId !== params.id && role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-    }
-
-    const user = await db.user.findUnique({
-      where: { id: params.id },
-      select: { id: true, name: true, email: true, role: true, created_at: true }
-    });
-
-    if (!user) {
-      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true, data: user });
+    return null;
   } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Unable to fetch user' }, { status: 500 });
+    return null;
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: { id: string } }) {
   try {
-    const token = getTokenFromHeader(request.headers.get('authorization'));
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-    const payload = verifyToken(token);
-    const userId = typeof payload.userId === 'string' ? payload.userId : null;
-    const role = typeof payload.role === 'string' ? payload.role : 'user';
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const payload = getPayload(request);
+    if (!payload) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    if (userId !== params.id && role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    const { id } = paramsSchema.parse(context.params);
+    if (payload.role !== "admin" && payload.id !== id) {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 
-    const data = updateSchema.parse(await request.json());
-    const existing = await db.user.findUnique({ where: { id: params.id } });
-    if (!existing) {
-      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+    const user = await db.user.findUnique({ where: { id } });
+    if (!user) {
+      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
     }
 
-    const password_hash = data.password ? await hashPassword(data.password) : existing.password_hash;
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        created_at: user.created_at.toISOString()
+      }
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Invalid request";
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
+  }
+}
+
+export async function PUT(request: NextRequest, context: { params: { id: string } }) {
+  try {
+    const payload = getPayload(request);
+    if (!payload) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+    if (payload.role !== "admin") {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    }
+
+    const { id } = paramsSchema.parse(context.params);
+    const body = updateSchema.parse(await request.json());
+
+    if (body.email) {
+      const existing = await db.user.findUnique({ where: { email: body.email } });
+      if (existing && existing.id !== id) {
+        return NextResponse.json({ success: false, error: "Email already registered" }, { status: 400 });
+      }
+    }
+
+    const updateData: {
+      name?: string;
+      email?: string;
+      password_hash?: string;
+      role?: string;
+    } = {};
+
+    if (body.name) updateData.name = body.name;
+    if (body.email) updateData.email = body.email;
+    if (body.role) updateData.role = body.role;
+    if (body.password) updateData.password_hash = await hashPassword(body.password);
 
     const user = await db.user.update({
-      where: { id: params.id },
-      data: {
-        name: data.name ?? existing.name,
-        email: data.email ?? existing.email,
-        password_hash
-      },
-      select: { id: true, name: true, email: true, role: true, created_at: true }
+      where: { id },
+      data: updateData
     });
 
-    return NextResponse.json({ success: true, data: user });
-  } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Validation error' }, { status: 400 });
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        created_at: user.created_at.toISOString()
+      }
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Invalid request";
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: { params: { id: string } }) {
   try {
-    const token = getTokenFromHeader(request.headers.get('authorization'));
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const payload = getPayload(request);
+    if (!payload) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    const payload = verifyToken(token);
-    const role = typeof payload.role === 'string' ? payload.role : 'user';
-
-    if (role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    if (payload.role !== "admin") {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 
-    await db.user.delete({ where: { id: params.id } });
-    return NextResponse.json({ success: true, data: { id: params.id } });
-  } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Unable to delete user' }, { status: 500 });
+    const { id } = paramsSchema.parse(context.params);
+    await db.user.delete({ where: { id } });
+
+    return NextResponse.json({ success: true, data: { deleted: true } });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Invalid request";
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }

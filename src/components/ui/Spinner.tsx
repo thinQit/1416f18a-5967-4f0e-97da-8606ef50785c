@@ -1,22 +1,15 @@
-import * as React from "react";
+import type { HTMLAttributes } from "react";
 
-export type SpinnerProps = {
-  size?: "sm" | "md" | "lg";
-  className?: string;
-};
+export type SpinnerProps = HTMLAttributes<HTMLDivElement>;
 
-const sizeMap: Record<NonNullable<SpinnerProps["size"]>, string> = {
-  sm: "h-4 w-4 border-2",
-  md: "h-6 w-6 border-2",
-  lg: "h-10 w-10 border-4",
-};
-
-export default function Spinner({ size = "md", className = "" }: SpinnerProps) {
+export function Spinner({ className = "", ...props }: SpinnerProps) {
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className={`inline-block animate-spin rounded-full border-gray-300 border-t-blue-600 ${sizeMap[size]} ${className}`}
-    />
+    <div className={`flex items-center justify-center ${className}`} {...props}>
+      <div
+        className="h-10 w-10 animate-spin rounded-full border-4 border-foreground/20 border-t-primary"
+        role="status"
+        aria-label="Loading"
+      />
+    </div>
   );
 }

@@ -1,83 +1,56 @@
-import type { ApiResponse, PaginatedResponse } from "@/types";
+import type { PaginatedResponse, Product } from "@/types";
 
-export type ApiClientOptions = {
-  baseUrl?: string;
-};
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
-export class ApiClient {
-  private baseUrl: string;
+type FetchOptions = Omit<RequestInit, "body"> & { body?: unknown };
 
-  constructor(options: ApiClientOptions = {}) {
-    this.baseUrl = options.baseUrl ?? process.env.NEXT_PUBLIC_API_URL ?? "";
+async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
+  const { body, headers, ...rest } = options;
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...rest,
+    headers: {
+      "Content-Type": "application/json",
+      ...(headers || {})
+    },
+    body: body ? JSON.stringify(body) : undefined
+  });
+
+  if (!res.ok) {
+    const message = await res.text();
+    throw new Error(message || "Request failed");
   }
 
-  private async request<T>(
-    path: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers ?? {}),
-      },
-      ...options,
-    });
-
-    const contentType = response.headers.get("content-type");
-    const data = contentType?.includes("application/json")
-      ? await response.json()
-      : null;
-
-    if (data && typeof data.success === "boolean") {
-      return data as ApiResponse<T>;
-    }
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data?.error ?? response.statusText,
-      } as ApiResponse<T>;
-    }
-
-    return {
-      success: true,
-      data: data as T,
-    } as ApiResponse<T>;
-  }
-
-  get<T>(path: string, token?: string) {
-    return this.request<T>(path, {
-      method: "GET",
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-  }
-
-  post<T>(path: string, body?: unknown, token?: string) {
-    return this.request<T>(path, {
-      method: "POST",
-      body: body ? JSON.stringify(body) : undefined,
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-  }
-
-  put<T>(path: string, body?: unknown, token?: string) {
-    return this.request<T>(path, {
-      method: "PUT",
-      body: body ? JSON.stringify(body) : undefined,
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-  }
-
-  delete<T>(path: string, token?: string) {
-    return this.request<T>(path, {
-      method: "DELETE",
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-  }
+  return (await res.json()) as T;
 }
 
-export const apiClient = new ApiClient();
-export const api = apiClient;
+export async function fetchProducts(params?: {
+  page?: number;
+  limit?: number;
+  query?: string;
+}): Promise<PaginatedResponse<Product>> {
+  const search = new URLSearchParams();
+  if (params?.page) search.set("page", String(params.page));
+  if (params?.limit) search.set("limit", String(params.limit));
+  if (params?.query) search.set("query", params.query);
 
-export type { PaginatedResponse };
+  const queryString = search.toString();
+  const path = `/api/products${queryString ? `?${queryString}` : ""}`;
+  return apiFetch<PaginatedResponse<Product>>(path, { method: "GET" });
+}
+
+export async function fetchProduct(id: string): Promise<Product> {
+  return apiFetch<Product>(`/api/products/${id}`, { method: "GET" });
+}
+
+export async function login(payload: { email: string; password: string }) {
+  return apiFetch<{ token: string }>("/api/auth/login", {
+    method: "POST",
+    body: payload
+  });
+}
+
+export async function logout() {
+  return apiFetch<{ success: boolean }>("/api/auth/logout", {
+    method: "POST"
+  });
+}

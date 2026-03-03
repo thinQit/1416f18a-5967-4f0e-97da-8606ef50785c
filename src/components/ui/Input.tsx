@@ -1,17 +1,20 @@
-import * as React from "react";
+import type { InputHTMLAttributes, ReactNode } from "react";
 
-export type InputProps = React.InputHTMLAttributes<HTMLInputElement> & {
-  error?: string;
+export type InputProps = InputHTMLAttributes<HTMLInputElement> & {
+  label?: ReactNode;
 };
 
-export default function Input({ className = "", error, ...props }: InputProps) {
+export function Input({ label, className = "", id, ...props }: InputProps) {
+  const inputId = id ?? (typeof props.name === "string" ? props.name : undefined);
+
   return (
-    <div className="w-full">
+    <label className="flex w-full flex-col gap-2 text-sm text-foreground/80">
+      {label && <span className="font-medium text-foreground">{label}</span>}
       <input
-        className={`w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 ${className}`}
+        id={inputId}
+        className={`h-10 rounded-md border border-foreground/20 bg-background px-3 text-sm text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary ${className}`}
         {...props}
       />
-      {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : null}
-    </div>
+    </label>
   );
 }

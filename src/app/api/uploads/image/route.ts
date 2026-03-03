@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import db from "@/lib/db";
 import { getTokenFromHeader, verifyToken } from "@/lib/auth";
 
 const schema = z.object({});
@@ -38,7 +37,7 @@ function getPayload(request: NextRequest): TokenPayload | null {
   }
 }
 
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     schema.parse({});
     const payload = getPayload(request);
@@ -46,23 +45,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await db.user.findUnique({ where: { id: payload.id } });
-    if (!user) {
-      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+    const formData = await request.formData();
+    const file = formData.get("file");
+    if (!(file instanceof File)) {
+      return NextResponse.json({ success: false, error: "File is required" }, { status: 400 });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        created_at: user.created_at.toISOString()
-      }
-    });
+    const key = `${Date.now()}-${file.name}`;
+    const baseUrl = process.env.STORAGE_PROVIDER_URL || "https://example.com/uploads";
+    const url = `${baseUrl}/${key}`;
+
+    return NextResponse.json({ success: true, data: { url, key } }, { status: 201 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unauthorized";
-    return NextResponse.json({ success: false, error: message }, { status: 401 });
+    const message = error instanceof Error ? error.message : "Upload failed";
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }

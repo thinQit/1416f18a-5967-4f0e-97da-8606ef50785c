@@ -1,106 +1,152 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import db from '@/lib/db';
-import { getTokenFromHeader, verifyToken } from '@/lib/auth';
-
-const createSchema = z.object({
-  name: z.string().min(2),
-  description: z.string().min(2),
-  price: z.number().nonnegative(),
-  quantity: z.number().int().nonnegative().optional(),
-  images: z.array(z.string().url()).optional()
-});
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import db from "@/lib/db";
+import { getTokenFromHeader, verifyToken } from "@/lib/auth";
+import type { Product as PrismaProduct } from "@prisma/client";
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(10),
-  q: z.string().optional()
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+  category: z.string().optional()
 });
 
-function parseImages(value: string): string[] {
+const createSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  price: z.number().positive(),
+  currency: z.string().min(1),
+  stock: z.number().int().nonnegative(),
+  category: z.string().min(1),
+  images: z.array(z.string().url()).optional()
+});
+
+type TokenPayload = {
+  id: string;
+  email: string;
+  role: string;
+  name: string;
+};
+
+function parseImages(value: string | null): string[] {
+  if (!value) return [];
   try {
     const parsed = JSON.parse(value);
-    return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') ? parsed : [];
+    if (Array.isArray(parsed) && parsed.every(item => typeof item === "string")) {
+      return parsed;
+    }
+    return [];
   } catch (_error) {
     return [];
   }
 }
 
+function normalizeProduct(product: PrismaProduct) {
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description,
+    price: product.price,
+    currency: product.currency,
+    stock: product.stock,
+    images: parseImages(product.images),
+    category: product.category,
+    created_by: product.created_by,
+    created_at: product.created_at.toISOString(),
+    updated_at: product.updated_at.toISOString()
+  };
+}
+
+function getPayload(request: NextRequest): TokenPayload | null {
+  const token = getTokenFromHeader(request.headers.get("authorization"));
+  if (!token) return null;
+  try {
+    const payload = verifyToken(token);
+    if (typeof payload !== "object" || payload === null) return null;
+    const values = payload as Record<string, unknown>;
+    if (
+      typeof values.id === "string" &&
+      typeof values.email === "string" &&
+      typeof values.role === "string" &&
+      typeof values.name === "string"
+    ) {
+      return {
+        id: values.id,
+        email: values.email,
+        role: values.role,
+        name: values.name
+      };
+    }
+    return null;
+  } catch (_error) {
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const query = querySchema.parse({
-      page: searchParams.get('page'),
-      pageSize: searchParams.get('pageSize'),
-      q: searchParams.get('q') || undefined
-    });
+    const parsedQuery = querySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
+    const page = parsedQuery.page;
+    const limit = parsedQuery.limit;
+    const category = parsedQuery.category?.trim() || undefined;
+    const skip = (page - 1) * limit;
 
-    const where = query.q
-      ? {
-          name: {
-            contains: query.q,
-            mode: 'insensitive'
-          }
-        }
-      : {};
+    const where = category ? { category } : {};
 
     const [items, total] = await Promise.all([
       db.product.findMany({
         where,
-        skip: (query.page - 1) * query.pageSize,
-        take: query.pageSize,
-        orderBy: { created_at: 'desc' }
+        skip,
+        take: limit,
+        orderBy: { created_at: "desc" }
       }),
       db.product.count({ where })
     ]);
 
-    const mapped = items.map((item) => ({
-      ...item,
-      images: parseImages(item.images)
-    }));
-
     return NextResponse.json({
       success: true,
-      data: { items: mapped, total, page: query.page, pageSize: query.pageSize }
+      data: {
+        items: items.map(normalizeProduct),
+        meta: { page, limit, total }
+      }
     });
-  } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Invalid query parameters' }, { status: 400 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Invalid request";
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const token = getTokenFromHeader(request.headers.get('authorization'));
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const payload = getPayload(request);
+    if (!payload) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
-    const payload = verifyToken(token);
-    const userId = typeof payload.userId === 'string' ? payload.userId : null;
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    if (payload.role !== "admin") {
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 
-    const data = createSchema.parse(await request.json());
+    const body = createSchema.parse(await request.json());
+    const images = body.images ?? [];
 
     const product = await db.product.create({
       data: {
-        name: data.name,
-        description: data.description,
-        price: data.price,
-        quantity: data.quantity ?? 0,
-        images: JSON.stringify(data.images ?? []),
-        created_by_user_id: userId
+        name: body.name,
+        description: body.description,
+        price: body.price,
+        currency: body.currency,
+        stock: body.stock,
+        category: body.category,
+        images: JSON.stringify(images),
+        created_by: payload.id
       }
     });
 
     return NextResponse.json(
-      {
-        success: true,
-        data: { ...product, images: parseImages(product.images) }
-      },
+      { success: true, data: normalizeProduct(product) },
       { status: 201 }
     );
-  } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Validation error' }, { status: 400 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Invalid request";
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }

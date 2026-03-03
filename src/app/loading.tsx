@@ -1,9 +1,7 @@
-export default function LoadingPage() {
+export default function Loading() {
   return (
-    <main className="min-h-screen bg-background px-6 py-16">
-      <div className="mx-auto max-w-3xl rounded-2xl border border-border bg-white p-8 text-center">
-        <p className="text-secondary/70">Loading...</p>
-      </div>
-    </main>
+    <div className="min-h-screen flex items-center justify-center bg-muted">
+      <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" aria-label="Loading" />
+    </div>
   );
 }

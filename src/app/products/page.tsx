@@ -1,111 +1,102 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import type React from 'react';
-import { Card, CardContent } from '@/components/ui/Card';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
-import Spinner from '@/components/ui/Spinner';
-import { api } from '@/lib/api';
-import type { Product, PaginatedResponse } from '@/types';
+import { useCallback, useEffect, useState, type ChangeEvent } from "react";
+import Link from "next/link";
+import { api } from "@/lib/api";
+import type { PaginatedResponse, Product } from "@/types";
+import { Card, CardContent, CardHeader } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(6);
+  const [limit] = useState(6);
+  const [category, setCategory] = useState("");
   const [total, setTotal] = useState(0);
-  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  const totalPages = useMemo(() => Math.max(1, Math.ceil(total / pageSize)), [total, pageSize]);
-
-  const fetchProducts = async () => {
+  const loadProducts = useCallback(async () => {
     setLoading(true);
-    setError('');
+    setError(null);
     try {
       const response = await api.get<PaginatedResponse<Product>>(
-        `/api/products?page=${page}&pageSize=${pageSize}&q=${encodeURIComponent(query)}`
+        `/api/products?page=${page}&limit=${limit}&category=${encodeURIComponent(category)}`
       );
-      const items = response?.items ?? [];
-      setProducts(items);
-      setTotal(response?.total ?? 0);
-    } catch (_error) {
-      setError('Unable to load products. Please try again later.');
+      setProducts(response?.items ?? []);
+      setTotal(response?.meta?.total ?? 0);
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : "Unable to load products.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, limit, category]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [page, query]);
+    loadProducts();
+  }, [loadProducts]);
+
+  const totalPages = Math.ceil(total / limit) || 1;
 
   return (
-    <main className="min-h-screen bg-background px-6 py-10">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <div className="flex flex-col gap-4 rounded-2xl border border-border bg-white p-6 md:flex-row md:items-center md:justify-between">
+    <main className="min-h-screen bg-muted py-12">
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Product Listing</h1>
-            <p className="text-sm text-secondary/70">Browse public products and explore the catalog.</p>
+            <h1 className="text-3xl font-semibold text-foreground">Product Listing</h1>
+            <p className="text-foreground/70">Browse the latest inventory from ProdBoard.</p>
           </div>
-          <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row">
+          <div className="w-full md:w-72">
             <Input
-              name="search"
-              placeholder="Search products"
-              value={query}
-              onChange={(event) => {
-                setPage(1);
-                setQuery(event.target.value);
-              }}
+              label="Filter by category"
+              value={category}
+              onChange={(event: ChangeEvent<HTMLInputElement>) => setCategory(event.target.value)}
+              placeholder="e.g. Accessories"
             />
-            <Button href="/products/new">Add Product</Button>
           </div>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-2xl border border-border bg-white p-10">
+          <div className="py-16">
             <Spinner />
           </div>
         ) : error ? (
-          <Card>
-            <CardContent className="text-sm text-destructive">{error}</CardContent>
-          </Card>
+          <div className="py-16 text-center text-error">{error}</div>
+        ) : products.length === 0 ? (
+          <div className="py-16 text-center text-foreground/70">No products found.</div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {products.map((product) => (
+          <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {products.map(product => (
               <Card key={product.id}>
-                <CardContent className="space-y-2">
-                  <h3 className="text-lg font-semibold">{product.name}</h3>
-                  <p className="text-sm text-secondary/70 line-clamp-2">{product.description}</p>
+                <CardHeader>
+                  <h3 className="text-lg font-semibold text-foreground">{product.name}</h3>
+                  <p className="text-sm text-foreground/70">{product.category}</p>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm text-foreground/70 line-clamp-2">{product.description}</p>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold">${product.price.toFixed(2)}</span>
-                    <Button href={`/products/${product.id}`} size="sm">
-                      View
-                    </Button>
+                    <span className="text-lg font-semibold text-foreground">
+                      {product.currency} {product.price.toFixed(2)}
+                    </span>
+                    <span className="text-sm text-foreground/60">Stock: {product.stock}</span>
                   </div>
+                  <Link href={`/products/${product.id}`} className="text-primary text-sm font-medium">
+                    View details →
+                  </Link>
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-4">
-          <Button
-            type="button"
-            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            disabled={page <= 1}
-          >
+        <div className="mt-12 flex items-center justify-center gap-4">
+          <Button variant="outline" disabled={page <= 1} onClick={() => setPage(prev => Math.max(prev - 1, 1))}>
             Previous
           </Button>
-          <span className="text-sm text-secondary/70">
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            type="button"
-            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-            disabled={page >= totalPages}
-          >
+          <span className="text-sm text-foreground/70">Page {page} of {totalPages}</span>
+          <Button variant="outline" disabled={page >= totalPages} onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}>
             Next
           </Button>
         </div>

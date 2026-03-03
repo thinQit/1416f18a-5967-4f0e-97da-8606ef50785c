@@ -1,40 +1,44 @@
-export type ApiResponse<T> = {
-  success: boolean;
-  data?: T;
-  error?: string;
-};
+export type UserRole = "user" | "admin";
 
-export type PaginatedResponse<T> = {
-  items: T[];
-  page: number;
-  pageSize: number;
-  total: number;
-};
-
-export type User = {
+export interface User {
   id: string;
   name: string;
   email: string;
-  role?: "user" | "admin";
-  avatarUrl?: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
+  password_hash?: string;
+  role: UserRole;
+  created_at: string;
+}
 
-export type Product = {
+export interface Product {
   id: string;
   name: string;
-  description?: string;
+  description: string;
   price: number;
-  currency?: string;
-  quantity: number;
+  currency: string;
+  stock: number;
   images: string[];
-  created_by_user_id: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
+  category: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
 
-export type AuthSession = {
-  user: User | null;
-  token?: string | null;
-};
+export interface AuthSession {
+  token: string;
+  expires_at: string;
+  user: User;
+}
+
+export interface ApiResponse<T> {
+  data: T;
+  message?: string;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+}

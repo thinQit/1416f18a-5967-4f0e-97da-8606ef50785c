@@ -1,20 +1,21 @@
-import "./global.css";
+import "@/app/globals.css";
+import type { Metadata } from "next";
 import { AuthProvider } from "@/providers/AuthProvider";
 import Navigation from '@/components/layout/Navigation';
 
-export const metadata = {
-  title: "App",
-  description: "Next.js application",
+export const metadata: Metadata = {
+  title: "Shop",
+  description: "Next.js 14 app"
 };
 
 export default function RootLayout({
-  children,
+  children
 }: {
   children: React.ReactNode;
 }) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-gray-50 text-gray-900">
+      <body>
         <AuthProvider><><Navigation />{children}</></AuthProvider>
       </body>
     </html>
