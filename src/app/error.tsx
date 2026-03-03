@@ -1,17 +1,18 @@
 'use client';
 
-export default function Error({ reset }: { reset: () => void }) {
+import { useEffect } from "react";
+
+export default function ErrorPage({ error }: { error: Error & { digest?: string } }) {
+  useEffect(() => {
+    console.error(error);
+  }, [error]);
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-muted text-center">
-      <h2 className="text-2xl font-semibold text-foreground">Something went wrong</h2>
-      <p className="text-foreground/70">Please try again or return later.</p>
-      <button
-        type="button"
-        onClick={reset}
-        className="rounded-md bg-primary px-4 py-2 text-white"
-      >
-        Try again
-      </button>
-    </div>
+    <main className="flex min-h-[60vh] items-center justify-center px-6 py-16">
+      <div className="max-w-md text-center">
+        <h1 className="text-3xl font-bold text-slate-900">Something went wrong</h1>
+        <p className="mt-3 text-sm text-slate-600">We encountered an unexpected error. Please try again.</p>
+      </div>
+    </main>
   );
 }

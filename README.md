@@ -1,34 +1,46 @@
-# ProdBoard
+# Productly
 
-ProdBoard is a lightweight product management dashboard that provides user registration/login, product CRUD (create, read, update, delete), and a product listing dashboard. It includes REST APIs, JWT-based auth, and simple role support so admin users can manage inventory while regular users can view products.
+Productly is a lightweight product management dashboard for teams to register/login, create and manage product listings with pricing, inventory, and images. It ships with REST APIs, admin UI, and role-based access control.
 
 ## Features
-- JWT-based authentication with role support (admin/user)
-- Product listing with pagination and category filtering
-- Admin product create/update/delete
-- REST API endpoints for products and authentication
+- JWT authentication with registration and login
+- Product CRUD with pricing, inventory, images, and ownership checks
+- Searchable, paginated product listings
+- Role-based access (admin vs user)
 
 ## Setup
-1. Copy `.env.example` to `.env` and update values.
-2. Install dependencies: `npm install`
-3. Generate Prisma client: `npx prisma generate`
-4. Run dev server: `npm run dev`
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Configure environment:
+   ```bash
+   cp .env.example .env
+   ```
+3. Run Prisma migrations and seed:
+   ```bash
+   npx prisma migrate dev --name init
+   npx prisma db seed
+   ```
+4. Start the dev server:
+   ```bash
+   npm run dev
+   ```
 
 ## API Endpoints
 - `GET /api/health`
 - `POST /api/auth/register`
 - `POST /api/auth/login`
-- `GET /api/users/me`
+- `GET /api/auth/me`
 - `GET /api/products`
 - `POST /api/products`
-- `GET /api/products/{id}`
-- `PUT /api/products/{id}`
-- `DELETE /api/products/{id}`
-- `POST /api/uploads/image`
+- `GET /api/products/:id`
+- `PUT /api/products/:id`
+- `DELETE /api/products/:id`
+- `POST /api/products/:id/images`
 
 ## Scripts
-- `npm run dev`
-- `npm run build`
-- `npm run start`
-- `npm run lint`
-- `npm run test`
+- `npm run dev` - Start Next.js dev server
+- `npm run build` - Generate Prisma client and build
+- `npm run lint` - Run ESLint
+- `npm run test` - Run Jest tests

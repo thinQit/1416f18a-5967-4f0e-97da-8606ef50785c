@@ -3,15 +3,22 @@
 @tailwind utilities;
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
+  --primary: #4f46e5;
+  --primary-hover: #38bdf8;
+  --secondary: #64748b;
+  --background: #10b981;
+  --foreground: #0f172a;
+  --muted: #f1f5f9;
+  --border: #e2e8f0;
+  --error: #ef4444;
+  --success: #22c55e;
+  --radius: 0.5rem;
+}
+
+html, body {
+  height: 100%;
 }
 
 body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+  @apply bg-background text-foreground antialiased;
 }

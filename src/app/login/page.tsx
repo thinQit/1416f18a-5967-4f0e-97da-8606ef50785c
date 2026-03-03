@@ -1,76 +1,76 @@
 'use client';
 
-import { useState, type ChangeEvent, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/Button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
+import { useState } from "react";
+import Input from "@/components/ui/Input";
+import Button from "@/components/ui/Button";
+import Card, { CardContent, CardHeader } from "@/components/ui/Card";
+import { api } from "@/lib/api";
 import { useAuth } from "@/providers/AuthProvider";
+import { useRouter } from "next/navigation";
+
+interface LoginResponse {
+  token: string;
+  expiresAt: string;
+  user: { id: string; name: string; email: string; role: string };
+}
 
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
-  const [form, setForm] = useState({ email: "", password: "" });
-  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({ email: "", password: "" });
 
-  const handleChange = (key: keyof typeof form) => (event: ChangeEvent<HTMLInputElement>) => {
-    setForm(prev => ({ ...prev, [key]: event.target.value }));
-  };
+  const handleChange =
+    (field: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement>) => {
+      setForm((prev) => ({ ...prev, [field]: event.target.value }));
+    };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setError(null);
     setLoading(true);
+    setError(null);
     try {
-      await login(form.email, form.password);
+      const response = await api.post<LoginResponse>("/api/auth/login", form);
+      const token = response?.token;
+      if (!token) {
+        throw new Error("Missing auth token");
+      }
+      login(token);
       router.push("/products");
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Unable to sign in.");
+      const message = error instanceof Error ? error.message : "Login failed";
+      setError(message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-muted py-16">
-      <div className="mx-auto max-w-md px-6">
+    <main className="bg-slate-50 py-16">
+      <div className="mx-auto max-w-lg px-6">
         <Card>
           <CardHeader>
-            <h1 className="text-2xl font-semibold text-foreground">Welcome back to ProdBoard</h1>
-            <p className="text-sm text-foreground/70">Sign in to manage or browse products.</p>
+            <h1 className="text-2xl font-bold text-slate-900">Sign in to Productly</h1>
+            <p className="text-sm text-slate-500">Access your products and manage inventory.</p>
           </CardHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <CardContent className="space-y-4">
-              <Input
-                label="Email"
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={handleChange("email")}
-                placeholder="alex@company.com"
-                required
-              />
+          <CardContent>
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <Input label="Email" name="email" type="email" value={form.email} onChange={handleChange("email")} required />
               <Input
                 label="Password"
                 name="password"
                 type="password"
                 value={form.password}
                 onChange={handleChange("password")}
-                placeholder="••••••••"
                 required
               />
               {error && <p className="text-sm text-error">{error}</p>}
-            </CardContent>
-            <CardFooter className="flex flex-col gap-3">
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in..." : "Sign in"}
+                {loading ? "Signing in..." : "Login"}
               </Button>
-              <p className="text-sm text-foreground/70">
-                New to ProdBoard? <a className="text-primary hover:underline" href="/register">Create an account</a>
-              </p>
-            </CardFooter>
-          </form>
+            </form>
+          </CardContent>
         </Card>
       </div>
     </main>

@@ -1,40 +1,25 @@
-import type { HTMLAttributes, ReactNode } from "react";
+import React from "react";
+import clsx from "clsx";
 
-export type CardProps = HTMLAttributes<HTMLDivElement> & {
-  children?: ReactNode;
-};
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  asChild?: boolean;
+}
 
-export function Card({ className = "", children, ...props }: CardProps) {
+export function Card({ className, ...props }: CardProps) {
   return (
     <div
-      className={`rounded-xl border border-foreground/10 bg-background shadow-sm ${className}`}
+      className={clsx("rounded-lg border border-gray-200 bg-white shadow-sm", className)}
       {...props}
-    >
-      {children}
-    </div>
+    />
   );
 }
 
-export function CardHeader({ className = "", children, ...props }: CardProps) {
-  return (
-    <div className={`border-b border-foreground/10 px-6 py-5 ${className}`} {...props}>
-      {children}
-    </div>
-  );
+export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={clsx("border-b border-gray-100 p-4", className)} {...props} />;
 }
 
-export function CardContent({ className = "", children, ...props }: CardProps) {
-  return (
-    <div className={`px-6 py-5 ${className}`} {...props}>
-      {children}
-    </div>
-  );
+export function CardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={clsx("p-4", className)} {...props} />;
 }
 
-export function CardFooter({ className = "", children, ...props }: CardProps) {
-  return (
-    <div className={`border-t border-foreground/10 px-6 py-5 ${className}`} {...props}>
-      {children}
-    </div>
-  );
-}
+export default Card;

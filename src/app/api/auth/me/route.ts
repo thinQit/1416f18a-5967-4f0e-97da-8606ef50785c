@@ -1,54 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import db from "@/lib/db";
+import { db } from "@/lib/db";
 import { getTokenFromHeader, verifyToken } from "@/lib/auth";
 
-const schema = z.object({});
-
-type TokenPayload = {
-  id: string;
-  email: string;
-  role: string;
-  name: string;
-};
-
-function getPayload(request: NextRequest): TokenPayload | null {
+export async function GET(request: NextRequest) {
   const token = getTokenFromHeader(request.headers.get("authorization"));
-  if (!token) return null;
+  if (!token) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const payload = verifyToken(token);
-    if (typeof payload !== "object" || payload === null) return null;
-    const values = payload as Record<string, unknown>;
-    if (
-      typeof values.id === "string" &&
-      typeof values.email === "string" &&
-      typeof values.role === "string" &&
-      typeof values.name === "string"
-    ) {
-      return {
-        id: values.id,
-        email: values.email,
-        role: values.role,
-        name: values.name
-      };
-    }
-    return null;
-  } catch (_error) {
-    return null;
-  }
-}
+    const userId = typeof payload.userId === "string" ? payload.userId : null;
 
-export async function GET(request: NextRequest) {
-  try {
-    schema.parse({});
-    const payload = getPayload(request);
-    if (!payload) {
+    if (!userId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const user = await db.user.findUnique({ where: { id: payload.id } });
+    const user = await db.user.findUnique({ where: { id: userId } });
     if (!user) {
-      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
     return NextResponse.json({
@@ -57,12 +27,10 @@ export async function GET(request: NextRequest) {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
-        created_at: user.created_at.toISOString()
+        role: user.role
       }
     });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Unauthorized";
-    return NextResponse.json({ success: false, error: message }, { status: 401 });
+  } catch (_error) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 }

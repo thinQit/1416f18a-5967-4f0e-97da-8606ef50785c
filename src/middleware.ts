@@ -1,23 +1,19 @@
+export const runtime = 'nodejs';
+
 import { NextRequest, NextResponse } from "next/server";
 import { getTokenFromHeader, verifyToken } from "@/lib/auth";
 
-export const runtime = "nodejs";
+const publicPaths = ["/api/health", "/api/auth/login", "/api/auth/register"];
 
-const openPaths = [
-  "/api/health",
-  "/api/auth/login",
-  "/api/auth/register",
-  "/api/products"
-];
+function isPublicRequest(request: NextRequest): boolean {
+  const { pathname } = request.nextUrl;
+  if (publicPaths.includes(pathname)) return true;
+  if (pathname.startsWith("/api/products") && request.method === "GET") return true;
+  return false;
+}
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-  const method = request.method;
-
-  const isProductRead = pathname.startsWith("/api/products/") && method === "GET";
-  const isOpen = openPaths.includes(pathname) || isProductRead;
-
-  if (isOpen) {
+  if (isPublicRequest(request)) {
     return NextResponse.next();
   }
 

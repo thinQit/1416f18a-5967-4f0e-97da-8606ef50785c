@@ -1,38 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import db from "@/lib/db";
+import { db } from "@/lib/db";
 import { getTokenFromHeader, verifyToken } from "@/lib/auth";
-import type { Product as PrismaProduct } from "@prisma/client";
-
-const querySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(50).default(10),
-  category: z.string().optional()
-});
+import type { Product as PrismaProduct, Prisma } from "@prisma/client";
 
 const createSchema = z.object({
-  name: z.string().min(1),
-  description: z.string().min(1),
-  price: z.number().positive(),
-  currency: z.string().min(1),
-  stock: z.number().int().nonnegative(),
-  category: z.string().min(1),
-  images: z.array(z.string().url()).optional()
+  name: z.string().min(2),
+  description: z.string().min(5),
+  price: z.coerce.number().positive(),
+  sku: z.string().optional(),
+  stock: z.coerce.number().int().optional(),
+  images: z.array(z.string()).optional()
 });
 
-type TokenPayload = {
-  id: string;
-  email: string;
-  role: string;
-  name: string;
-};
+const querySchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  pageSize: z.coerce.number().int().positive().max(100).default(20),
+  q: z.string().optional().default(""),
+  sort: z.string().optional().default("createdAt:desc")
+});
 
-function parseImages(value: string | null): string[] {
-  if (!value) return [];
+function parseImages(images: string | null): string[] {
+  if (!images) return [];
   try {
-    const parsed = JSON.parse(value);
-    if (Array.isArray(parsed) && parsed.every(item => typeof item === "string")) {
-      return parsed;
+    const parsed = JSON.parse(images);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item) => typeof item === "string");
     }
     return [];
   } catch (_error) {
@@ -40,113 +33,99 @@ function parseImages(value: string | null): string[] {
   }
 }
 
-function normalizeProduct(product: PrismaProduct) {
+function formatProduct(product: PrismaProduct) {
   return {
-    id: product.id,
-    name: product.name,
-    description: product.description,
-    price: product.price,
-    currency: product.currency,
-    stock: product.stock,
-    images: parseImages(product.images),
-    category: product.category,
-    created_by: product.created_by,
-    created_at: product.created_at.toISOString(),
-    updated_at: product.updated_at.toISOString()
+    ...product,
+    price: Number(product.price),
+    images: parseImages(product.images)
   };
-}
-
-function getPayload(request: NextRequest): TokenPayload | null {
-  const token = getTokenFromHeader(request.headers.get("authorization"));
-  if (!token) return null;
-  try {
-    const payload = verifyToken(token);
-    if (typeof payload !== "object" || payload === null) return null;
-    const values = payload as Record<string, unknown>;
-    if (
-      typeof values.id === "string" &&
-      typeof values.email === "string" &&
-      typeof values.role === "string" &&
-      typeof values.name === "string"
-    ) {
-      return {
-        id: values.id,
-        email: values.email,
-        role: values.role,
-        name: values.name
-      };
-    }
-    return null;
-  } catch (_error) {
-    return null;
-  }
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const parsedQuery = querySchema.parse(Object.fromEntries(new URL(request.url).searchParams));
-    const page = parsedQuery.page;
-    const limit = parsedQuery.limit;
-    const category = parsedQuery.category?.trim() || undefined;
-    const skip = (page - 1) * limit;
+    const { searchParams } = new URL(request.url);
+    const query = querySchema.parse({
+      page: searchParams.get("page") ?? undefined,
+      pageSize: searchParams.get("pageSize") ?? undefined,
+      q: searchParams.get("q") ?? undefined,
+      sort: searchParams.get("sort") ?? undefined
+    });
 
-    const where = category ? { category } : {};
+    const allowedSortFields = ["createdAt", "price", "name", "updatedAt"] as const;
+    const [sortFieldRaw, sortOrderRaw] = query.sort.split(":");
+    const sortField = allowedSortFields.includes(sortFieldRaw as (typeof allowedSortFields)[number])
+      ? (sortFieldRaw as (typeof allowedSortFields)[number])
+      : "createdAt";
+    const sortOrder: Prisma.SortOrder = sortOrderRaw === "asc" ? "asc" : "desc";
 
-    const [items, total] = await Promise.all([
+    const where: Prisma.ProductWhereInput = query.q
+      ? {
+          OR: [
+            { name: { contains: query.q, mode: "insensitive" } },
+            { description: { contains: query.q, mode: "insensitive" } },
+            { sku: { contains: query.q, mode: "insensitive" } }
+          ]
+        }
+      : {};
+
+    const [total, items] = await Promise.all([
+      db.product.count({ where }),
       db.product.findMany({
         where,
-        skip,
-        take: limit,
-        orderBy: { created_at: "desc" }
-      }),
-      db.product.count({ where })
+        orderBy: { [sortField]: sortOrder },
+        skip: (query.page - 1) * query.pageSize,
+        take: query.pageSize
+      })
     ]);
 
     return NextResponse.json({
       success: true,
       data: {
-        items: items.map(normalizeProduct),
-        meta: { page, limit, total }
+        total,
+        page: query.page,
+        pageSize: query.pageSize,
+        items: items.map(formatProduct)
       }
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Invalid request";
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ success: false, error: error.errors[0]?.message ?? "Invalid query" }, { status: 400 });
+    }
+    return NextResponse.json({ success: false, error: "Failed to fetch products" }, { status: 500 });
   }
 }
 
 export async function POST(request: NextRequest) {
+  const token = getTokenFromHeader(request.headers.get("authorization"));
+  if (!token) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
-    const payload = getPayload(request);
-    if (!payload) {
+    const payload = verifyToken(token);
+    const userId = typeof payload.userId === "string" ? payload.userId : null;
+    if (!userId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    }
-    if (payload.role !== "admin") {
-      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 
     const body = createSchema.parse(await request.json());
-    const images = body.images ?? [];
-
     const product = await db.product.create({
       data: {
         name: body.name,
         description: body.description,
         price: body.price,
-        currency: body.currency,
-        stock: body.stock,
-        category: body.category,
-        images: JSON.stringify(images),
-        created_by: payload.id
+        sku: body.sku,
+        stock: body.stock ?? 0,
+        images: JSON.stringify(body.images ?? []),
+        ownerId: userId
       }
     });
 
-    return NextResponse.json(
-      { success: true, data: normalizeProduct(product) },
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true, data: formatProduct(product) }, { status: 201 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Invalid request";
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ success: false, error: error.errors[0]?.message ?? "Invalid request" }, { status: 400 });
+    }
+    return NextResponse.json({ success: false, error: "Failed to create product" }, { status: 500 });
   }
 }

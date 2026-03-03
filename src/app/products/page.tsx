@@ -1,105 +1,164 @@
 'use client';
 
-import { useCallback, useEffect, useState, type ChangeEvent } from "react";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { PaginatedResponse, Product } from "@/types";
-import { Card, CardContent, CardHeader } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
-import { Spinner } from "@/components/ui/Spinner";
+import Card, { CardContent, CardHeader } from "@/components/ui/Card";
+import Input from "@/components/ui/Input";
+import Spinner from "@/components/ui/Spinner";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
+
+const PAGE_SIZE = 10;
+
+type SortOption = "createdAt:desc" | "createdAt:asc" | "price:asc" | "price:desc";
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortOption>("createdAt:desc");
   const [page, setPage] = useState(1);
-  const [limit] = useState(6);
-  const [category, setCategory] = useState("");
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<PaginatedResponse<Product> | null>(null);
 
-  const loadProducts = useCallback(async () => {
+  const fetchProducts = async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await api.get<PaginatedResponse<Product>>(
-        `/api/products?page=${page}&limit=${limit}&category=${encodeURIComponent(category)}`
+        `/api/products?page=${page}&pageSize=${PAGE_SIZE}&q=${encodeURIComponent(query)}&sort=${sort}`
       );
-      setProducts(response?.items ?? []);
-      setTotal(response?.meta?.total ?? 0);
+      setData(response ?? null);
     } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Unable to load products.");
+      const message = error instanceof Error ? error.message : "Failed to load products";
+      setError(message);
     } finally {
       setLoading(false);
     }
-  }, [page, limit, category]);
+  };
 
   useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
+    fetchProducts();
+  }, [page, sort]);
 
-  const totalPages = Math.ceil(total / limit) || 1;
+  const items = data?.items ?? [];
+  const totalPages = data ? Math.ceil(data.total / data.pageSize) : 1;
 
   return (
-    <main className="min-h-screen bg-muted py-12">
+    <main className="bg-slate-50 py-12">
       <div className="mx-auto max-w-6xl px-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+        <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold text-foreground">Product Listing</h1>
-            <p className="text-foreground/70">Browse the latest inventory from ProdBoard.</p>
+            <h1 className="text-2xl font-bold text-slate-900">Product listing</h1>
+            <p className="text-sm text-slate-600">Search, sort, and manage Productly items.</p>
           </div>
-          <div className="w-full md:w-72">
+          <div className="flex w-full flex-col gap-4 md:w-auto md:flex-row">
             <Input
-              label="Filter by category"
-              value={category}
-              onChange={(event: ChangeEvent<HTMLInputElement>) => setCategory(event.target.value)}
-              placeholder="e.g. Accessories"
+              label="Search"
+              name="q"
+              value={query}
+              onChange={(event: React.ChangeEvent<HTMLInputElement>) => setQuery(event.target.value)}
+              onKeyDown={(event: React.KeyboardEvent<HTMLInputElement>) => {
+                if (event.key === "Enter") {
+                  setPage(1);
+                  fetchProducts();
+                }
+              }}
+              placeholder="Search products"
             />
+            <div className="flex flex-col gap-2 text-sm">
+              <label className="text-sm font-medium text-slate-700" htmlFor="sort">
+                Sort by
+              </label>
+              <select
+                id="sort"
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                value={sort}
+                onChange={(event: React.ChangeEvent<HTMLSelectElement>) => {
+                  setSort(event.target.value as SortOption);
+                  setPage(1);
+                }}
+              >
+                <option value="createdAt:desc">Newest</option>
+                <option value="createdAt:asc">Oldest</option>
+                <option value="price:asc">Price: Low to High</option>
+                <option value="price:desc">Price: High to Low</option>
+              </select>
+            </div>
+            <Button
+              variant="outline"
+              className="self-end md:self-auto"
+              onClick={() => {
+                setPage(1);
+                fetchProducts();
+              }}
+            >
+              Search
+            </Button>
           </div>
         </div>
 
-        {loading ? (
-          <div className="py-16">
+        {loading && (
+          <div className="flex justify-center py-12">
             <Spinner />
           </div>
-        ) : error ? (
-          <div className="py-16 text-center text-error">{error}</div>
-        ) : products.length === 0 ? (
-          <div className="py-16 text-center text-foreground/70">No products found.</div>
-        ) : (
-          <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {products.map(product => (
+        )}
+
+        {error && <p className="mt-6 text-sm text-error">{error}</p>}
+
+        {!loading && !error && items.length === 0 && (
+          <p className="mt-8 text-sm text-slate-600">No products found. Try adjusting your search.</p>
+        )}
+
+        {!loading && items.length > 0 && (
+          <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {items.map((product) => (
               <Card key={product.id}>
                 <CardHeader>
-                  <h3 className="text-lg font-semibold text-foreground">{product.name}</h3>
-                  <p className="text-sm text-foreground/70">{product.category}</p>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-foreground/70 line-clamp-2">{product.description}</p>
                   <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-foreground">
-                      {product.currency} {product.price.toFixed(2)}
-                    </span>
-                    <span className="text-sm text-foreground/60">Stock: {product.stock}</span>
+                    <h2 className="text-lg font-semibold text-slate-900">{product.name}</h2>
+                    <Badge variant={product.active ? "success" : "warning"}>
+                      {product.active ? "Active" : "Inactive"}
+                    </Badge>
                   </div>
-                  <Link href={`/products/${product.id}`} className="text-primary text-sm font-medium">
-                    View details →
-                  </Link>
+                  <p className="text-xs text-slate-500">SKU: {product.sku || "N/A"}</p>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-slate-600">{product.description}</p>
+                  <div className="mt-4 flex items-center justify-between text-sm">
+                    <span className="font-semibold text-slate-900">${product.price}</span>
+                    <span className="text-slate-500">Stock: {product.stock ?? 0}</span>
+                  </div>
+                  <a href={`/products/${product.id}`} className="mt-4 inline-flex text-sm font-semibold text-primary">
+                    View details
+                  </a>
                 </CardContent>
               </Card>
             ))}
           </div>
         )}
 
-        <div className="mt-12 flex items-center justify-center gap-4">
-          <Button variant="outline" disabled={page <= 1} onClick={() => setPage(prev => Math.max(prev - 1, 1))}>
-            Previous
-          </Button>
-          <span className="text-sm text-foreground/70">Page {page} of {totalPages}</span>
-          <Button variant="outline" disabled={page >= totalPages} onClick={() => setPage(prev => Math.min(prev + 1, totalPages))}>
-            Next
-          </Button>
-        </div>
+        {data && totalPages > 1 && (
+          <div className="mt-8 flex items-center gap-3">
+            <button
+              className="rounded-md border border-slate-200 px-3 py-1 text-sm disabled:opacity-50"
+              disabled={page === 1}
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            >
+              Previous
+            </button>
+            <span className="text-sm text-slate-500">
+              Page {data.page} of {totalPages}
+            </span>
+            <button
+              className="rounded-md border border-slate-200 px-3 py-1 text-sm disabled:opacity-50"
+              disabled={page >= totalPages}
+              onClick={() => setPage((prev) => prev + 1)}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </main>
   );

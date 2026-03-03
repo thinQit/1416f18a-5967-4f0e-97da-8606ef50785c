@@ -1,50 +1,45 @@
-type ApiErrorPayload = {
-  error?: string;
-  message?: string;
+export type ApiOptions = Omit<RequestInit, "body"> & {
+  body?: unknown;
 };
 
-const buildErrorMessage = (payload: ApiErrorPayload | null, statusText: string) => {
-  if (!payload) return statusText || 'Request failed.';
-  return payload.error || payload.message || statusText || 'Request failed.';
-};
-
-const parseJson = async (response: Response) => {
-  const text = await response.text();
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-};
-
-const request = async <T>(url: string, init: RequestInit, token?: string): Promise<T> => {
-  const headers = new Headers(init.headers);
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-  if (init.body && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
-  }
-
-  const response = await fetch(url, { ...init, headers });
-  const payload = await parseJson(response);
+async function request<T>(url: string, options: ApiOptions = {}): Promise<T> {
+  const { body, headers, ...rest } = options;
+  const response = await fetch(url, {
+    ...rest,
+    headers: {
+      "Content-Type": "application/json",
+      ...(headers || {})
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined
+  });
 
   if (!response.ok) {
-    throw new Error(buildErrorMessage(payload as ApiErrorPayload | null, response.statusText));
+    const message = await response.text();
+    throw new Error(message || `Request failed with ${response.status}`);
   }
 
-  if (payload && typeof payload === 'object' && 'data' in payload) {
-    return (payload as { data: T }).data;
-  }
+  return (await response.json()) as T;
+}
 
-  return payload as T;
-};
+export function apiGet<T>(url: string, options?: ApiOptions) {
+  return request<T>(url, { ...options, method: "GET" });
+}
+
+export function apiPost<T>(url: string, body?: unknown, options?: ApiOptions) {
+  return request<T>(url, { ...options, method: "POST", body });
+}
+
+export function apiPut<T>(url: string, body?: unknown, options?: ApiOptions) {
+  return request<T>(url, { ...options, method: "PUT", body });
+}
+
+export function apiDelete<T>(url: string, options?: ApiOptions) {
+  return request<T>(url, { ...options, method: "DELETE" });
+}
 
 export const api = {
-  get: async <T>(url: string, token?: string) => request<T>(url, { method: 'GET' }, token),
-  post: async <T>(url: string, body: unknown, token?: string) =>
-    request<T>(url, { method: 'POST', body: JSON.stringify(body) }, token)
+  get: apiGet,
+  post: apiPost,
+  put: apiPut,
+  delete: apiDelete
 };
-
-export default api;

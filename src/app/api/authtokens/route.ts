@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getTokenFromHeader, verifyToken, hashPassword } from "@/lib/auth";
+import { getTokenFromHeader, verifyToken } from "@/lib/auth";
 
 const createSchema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  password: z.string().min(6),
-  role: z.string().optional()
+  token: z.string().min(10),
+  userId: z.string().uuid(),
+  expiresAt: z.coerce.date()
 });
 
 async function getAuthUser(request: NextRequest) {
@@ -23,11 +22,6 @@ async function getAuthUser(request: NextRequest) {
   }
 }
 
-function sanitizeUser(user: { passwordHash: string } & Record<string, unknown>) {
-  const { passwordHash: _passwordHash, ...safeUser } = user;
-  return safeUser;
-}
-
 export async function GET(request: NextRequest) {
   try {
     const user = await getAuthUser(request);
@@ -38,11 +32,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     }
 
-    const users = await db.user.findMany({ orderBy: { createdAt: "desc" } });
-    const data = users.map((item) => sanitizeUser(item));
-    return NextResponse.json({ success: true, data });
+    const tokens = await db.authToken.findMany({ orderBy: { expiresAt: "desc" } });
+    return NextResponse.json({ success: true, data: tokens });
   } catch (_error) {
-    return NextResponse.json({ success: false, error: "Failed to fetch users" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Failed to fetch tokens" }, { status: 500 });
   }
 }
 
@@ -57,26 +50,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = createSchema.parse(await request.json());
-    const existing = await db.user.findUnique({ where: { email: body.email } });
-    if (existing) {
-      return NextResponse.json({ success: false, error: "Email already in use" }, { status: 400 });
-    }
-
-    const passwordHash = await hashPassword(body.password);
-    const created = await db.user.create({
+    const token = await db.authToken.create({
       data: {
-        name: body.name,
-        email: body.email,
-        passwordHash,
-        role: body.role === "admin" ? "admin" : "user"
+        token: body.token,
+        userId: body.userId,
+        expiresAt: body.expiresAt
       }
     });
 
-    return NextResponse.json({ success: true, data: sanitizeUser(created) }, { status: 201 });
+    return NextResponse.json({ success: true, data: token }, { status: 201 });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ success: false, error: error.errors[0]?.message ?? "Invalid request" }, { status: 400 });
     }
-    return NextResponse.json({ success: false, error: "Failed to create user" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Failed to create token" }, { status: 500 });
   }
 }
