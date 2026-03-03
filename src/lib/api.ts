@@ -1,56 +1,50 @@
-import type { PaginatedResponse, Product } from "@/types";
+type ApiErrorPayload = {
+  error?: string;
+  message?: string;
+};
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+const buildErrorMessage = (payload: ApiErrorPayload | null, statusText: string) => {
+  if (!payload) return statusText || 'Request failed.';
+  return payload.error || payload.message || statusText || 'Request failed.';
+};
 
-type FetchOptions = Omit<RequestInit, "body"> & { body?: unknown };
+const parseJson = async (response: Response) => {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
 
-async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
-  const { body, headers, ...rest } = options;
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...rest,
-    headers: {
-      "Content-Type": "application/json",
-      ...(headers || {})
-    },
-    body: body ? JSON.stringify(body) : undefined
-  });
-
-  if (!res.ok) {
-    const message = await res.text();
-    throw new Error(message || "Request failed");
+const request = async <T>(url: string, init: RequestInit, token?: string): Promise<T> => {
+  const headers = new Headers(init.headers);
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  if (init.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
   }
 
-  return (await res.json()) as T;
-}
+  const response = await fetch(url, { ...init, headers });
+  const payload = await parseJson(response);
 
-export async function fetchProducts(params?: {
-  page?: number;
-  limit?: number;
-  query?: string;
-}): Promise<PaginatedResponse<Product>> {
-  const search = new URLSearchParams();
-  if (params?.page) search.set("page", String(params.page));
-  if (params?.limit) search.set("limit", String(params.limit));
-  if (params?.query) search.set("query", params.query);
+  if (!response.ok) {
+    throw new Error(buildErrorMessage(payload as ApiErrorPayload | null, response.statusText));
+  }
 
-  const queryString = search.toString();
-  const path = `/api/products${queryString ? `?${queryString}` : ""}`;
-  return apiFetch<PaginatedResponse<Product>>(path, { method: "GET" });
-}
+  if (payload && typeof payload === 'object' && 'data' in payload) {
+    return (payload as { data: T }).data;
+  }
 
-export async function fetchProduct(id: string): Promise<Product> {
-  return apiFetch<Product>(`/api/products/${id}`, { method: "GET" });
-}
+  return payload as T;
+};
 
-export async function login(payload: { email: string; password: string }) {
-  return apiFetch<{ token: string }>("/api/auth/login", {
-    method: "POST",
-    body: payload
-  });
-}
+export const api = {
+  get: async <T>(url: string, token?: string) => request<T>(url, { method: 'GET' }, token),
+  post: async <T>(url: string, body: unknown, token?: string) =>
+    request<T>(url, { method: 'POST', body: JSON.stringify(body) }, token)
+};
 
-export async function logout() {
-  return apiFetch<{ success: boolean }>("/api/auth/logout", {
-    method: "POST"
-  });
-}
+export default api;

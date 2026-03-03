@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
-import Spinner from '@/components/ui/Spinner';
+import { Spinner } from '@/components/ui/Spinner';
 import Badge from '@/components/ui/Badge';
 import { api } from '@/lib/api';
 import { useAuth } from '@/providers/AuthProvider';
@@ -32,16 +32,19 @@ export default function AdminPage() {
     const loadDashboard = async () => {
       setLoading(true);
       setError(null);
-      const res = await api.get<ProductResponse>('/api/products?page=1&limit=100');
-      if (res.error || !res.data) {
-        setError(res.error || 'Unable to load dashboard.');
+      try {
+        const data = await api.get<ProductResponse>('/api/products?page=1&limit=100');
+        if (!data) {
+          throw new Error('Unable to load dashboard.');
+        }
+        const items = data.items ?? [];
+        setTotal(data.total ?? 0);
+        setLowStock(items.filter((item) => item.inventory < 5));
+      } catch (error) {
+        setError(error instanceof Error ? error.message : 'Unable to load dashboard.');
+      } finally {
         setLoading(false);
-        return;
       }
-      const items = res.data.items ?? [];
-      setTotal(res.data.total ?? 0);
-      setLowStock(items.filter((item) => item.inventory < 5));
-      setLoading(false);
     };
 
     loadDashboard();
@@ -65,38 +68,43 @@ export default function AdminPage() {
     <main className="min-h-screen bg-background px-6 py-10">
       <div className="mx-auto max-w-4xl space-y-6">
         <div className="space-y-2">
-          <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Overview of catalog inventory and low-stock alerts.</p>
+          <h1 className="text-2xl font-semibold">Admin overview</h1>
+          <p className="text-sm text-muted-foreground">Keep an eye on low stock items and inventory totals.</p>
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center rounded-2xl border border-border bg-white p-10">
+          <div className="flex justify-center py-12">
             <Spinner />
           </div>
         ) : error ? (
           <Card>
-            <CardContent className="text-sm text-destructive">{error}</CardContent>
+            <CardContent className="py-6 text-center text-sm text-destructive">{error}</CardContent>
           </Card>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-6">
             <Card>
-              <CardHeader>Total products</CardHeader>
-              <CardContent className="text-3xl font-semibold">{total}</CardContent>
+              <CardHeader>
+                <h2 className="text-lg font-semibold">Total products</h2>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-semibold">{total}</p>
+              </CardContent>
             </Card>
+
             <Card>
-              <CardHeader>Low stock items</CardHeader>
-              <CardContent className="space-y-2">
+              <CardHeader>
+                <h2 className="text-lg font-semibold">Low stock items</h2>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 {lowStock.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">All items are sufficiently stocked.</p>
+                  <p className="text-sm text-muted-foreground">All products have healthy stock levels.</p>
                 ) : (
-                  <ul className="space-y-2">
-                    {lowStock.map((item) => (
-                      <li key={item.id} className="flex items-center justify-between text-sm">
-                        <span>{item.title}</span>
-                        <Badge>{item.inventory} left</Badge>
-                      </li>
-                    ))}
-                  </ul>
+                  lowStock.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{item.title}</span>
+                      <Badge variant="destructive">{item.inventory} left</Badge>
+                    </div>
+                  ))
                 )}
               </CardContent>
             </Card>
