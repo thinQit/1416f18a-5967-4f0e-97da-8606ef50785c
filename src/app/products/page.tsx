@@ -61,91 +61,67 @@ export default function ProductsPage() {
         <div className="mb-8 flex flex-col gap-4 rounded-2xl border bg-white p-6">
           <div className="flex flex-col gap-2">
             <h1 className="text-3xl font-bold text-slate-900">Product Listing</h1>
-            <p className="text-slate-600">Browse the latest ShopFlow catalog with search and pagination.</p>
+            <p className="text-sm text-slate-500">Browse the latest products in the catalog.</p>
           </div>
-          <form onSubmit={handleSearch} className="flex flex-wrap items-center gap-3">
-            <div className="min-w-[220px] flex-1">
-              <Input
-                label="Search products"
-                value={search}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => setSearch(event.target.value)}
-                placeholder="Search by name or description"
-              />
-            </div>
-            <Button type="submit" variant="primary" className="mt-6 h-10">
-              Search
-            </Button>
+          <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Input
+              placeholder="Search products"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            <Button type="submit">Search</Button>
           </form>
         </div>
 
-        {loading && (
-          <div className="flex justify-center py-10">
-            <Spinner label="Loading products" />
+        {error ? <p className="mb-6 text-sm text-red-500">{error}</p> : null}
+
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-slate-500">
+            <Spinner className="h-4 w-4" />
+            Loading products...
           </div>
-        )}
-
-        {error && <p className="text-center text-sm text-error">{error}</p>}
-
-        {!loading && data?.items.length === 0 && (
-          <p className="text-center text-sm text-slate-600">No products found. Try adjusting your search.</p>
-        )}
-
-        {!loading && data && data.items.length > 0 && (
+        ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {data.items.map((product) => (
-              <Card key={product.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-900">{product.name}</h3>
-                      <p className="text-xs text-slate-500">
-                        Added {product.createdAt ? formatDate(product.createdAt) : 'N/A'}
-                      </p>
+            {data?.items?.length ? (
+              data.items.map((product) => (
+                <Card key={product.id}>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-lg font-semibold text-slate-900">{product.name}</h2>
+                      <Badge>{product.currency}</Badge>
                     </div>
-                    <Badge variant={product.stock && product.stock > 0 ? 'success' : 'warning'}>
-                      {product.stock && product.stock > 0 ? 'In Stock' : 'Low Stock'}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-slate-600">{product.description || 'No description provided.'}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-semibold text-slate-900">
-                      {product.currency || 'USD'} {product.price.toFixed(2)}
-                    </span>
-                    <Link href={`/products/${product.id}`} className="text-sm font-semibold text-primary">
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-slate-600 line-clamp-3">{product.description}</p>
+                    <div className="flex items-center justify-between text-sm text-slate-500">
+                      <span>${product.price.toFixed(2)}</span>
+                      <span>Updated {formatDate(product.updatedAt)}</span>
+                    </div>
+                    <Link href={`/products/${product.id}`} className="text-sm font-medium text-primary hover:underline">
                       View details
                     </Link>
-                  </div>
-                </CardContent>
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              <Card>
+                <CardContent className="text-sm text-slate-500">No products found.</CardContent>
               </Card>
-            ))}
+            )}
           </div>
         )}
 
-        {data && data.items.length > 0 && (
-          <div className="mt-10 flex items-center justify-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === 1}
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-            >
-              Previous
-            </Button>
-            <span className="text-sm text-slate-600">
-              Page {page} of {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-            >
-              Next
-            </Button>
-          </div>
-        )}
+        <div className="mt-10 flex items-center justify-center gap-3">
+          <Button disabled={page <= 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>
+            Previous
+          </Button>
+          <span className="text-sm text-slate-500">
+            Page {page} of {totalPages}
+          </span>
+          <Button disabled={page >= totalPages} onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}>
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );
