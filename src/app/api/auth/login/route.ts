@@ -5,42 +5,55 @@ import { signToken, verifyPassword } from '@/lib/auth';
 
 const schema = z.object({
   email: z.string().email(),
-  password: z.string().min(8)
+  password: z.string().min(1),
+  remember: z.boolean().optional()
 });
+
+function safeUser(user: { id: string; name: string; email: string; role: string; createdAt: Date }) {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role as 'admin' | 'user',
+    createdAt: user.createdAt.toISOString()
+  };
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const data = schema.parse(body);
-
-    const user = await db.user.findUnique({ where: { email: data.email } });
+    const body = schema.parse(await request.json());
+    const user = await db.user.findUnique({ where: { email: body.email } });
     if (!user) {
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const valid = await verifyPassword(data.password, user.passwordHash);
+    const valid = await verifyPassword(body.password, user.passwordHash);
     if (!valid) {
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const token = signToken({ userId: user.id, role: user.role });
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    return NextResponse.json({
+    const token = signToken({ sub: user.id, email: user.email, role: user.role });
+    const expiresIn = 60 * 60 * 24;
+    const response = NextResponse.json({
       success: true,
       data: {
-        token,
-        expiresAt: expiresAt.toISOString(),
-        user: { id: user.id, name: user.name, email: user.email, role: user.role }
+        accessToken: token,
+        expiresIn,
+        user: safeUser(user)
       }
     });
+
+    response.cookies.set('access_token', token, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: body.remember ? 60 * 60 * 24 * 7 : expiresIn,
+      path: '/'
+    });
+
+    return response;
   } catch (error: unknown) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: 'Validation error', details: error.flatten() },
-        { status: 400 }
-      );
-    }
-    return NextResponse.json({ success: false, error: 'Login failed' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }

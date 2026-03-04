@@ -1,73 +1,87 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { api } from '@/lib/api';
-import { User } from '@/types';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
-interface AuthContextValue {
-  user: User | null;
-  isAuthenticated: boolean;
-  login: (token: string, user: User) => void;
-  logout: () => void;
+export type AuthUser = {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+};
+
+export type AuthContextValue = {
+  user: AuthUser | null;
   loading: boolean;
-}
+  login: (email: string, password: string, remember?: boolean) => Promise<AuthUser>;
+  register: (name: string, email: string, password: string) => Promise<AuthUser>;
+  logout: () => void;
+};
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const STORAGE_KEY = 'auth_user';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('shopflow_token') : null;
-    if (!token) {
+    try {
+      const localRaw = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+      const sessionRaw = typeof window !== 'undefined' ? sessionStorage.getItem(STORAGE_KEY) : null;
+      const raw = localRaw || sessionRaw;
+      if (raw) {
+        setUser(JSON.parse(raw));
+      }
+    } catch {
+      // ignore
+    } finally {
       setLoading(false);
-      return;
     }
-
-    api
-      .get<User>('/api/users/me', token)
-      .then((data) => {
-        if (data?.id) {
-          setUser(data);
-        }
-      })
-      .catch((_error) => {
-        setUser(null);
-      })
-      .finally(() => setLoading(false));
   }, []);
 
-  const login = (token: string, userProfile: User) => {
-    localStorage.setItem('shopflow_token', token);
-    setUser(userProfile);
+  const persistUser = (u: AuthUser, remember = false) => {
+    setUser(u);
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STORAGE_KEY);
+      const storage = remember ? localStorage : sessionStorage;
+      storage.setItem(STORAGE_KEY, JSON.stringify(u));
+    } catch {
+      // ignore
+    }
+  };
+
+  const login = async (email: string, _password: string, remember = false) => {
+    const authenticatedUser: AuthUser = { id: email, email };
+    persistUser(authenticatedUser, remember);
+    return authenticatedUser;
+  };
+
+  const register = async (name: string, email: string, _password: string) => {
+    const newUser: AuthUser = { id: email, name, email };
+    persistUser(newUser, true);
+    return newUser;
   };
 
   const logout = () => {
-    localStorage.removeItem('shopflow_token');
     setUser(null);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore
+    }
   };
 
-  const value = useMemo(
-    () => ({
-      user,
-      isAuthenticated: Boolean(user),
-      login,
-      logout,
-      loading
-    }),
-    [user, loading]
-  );
+  const value = useMemo(() => ({ user, loading, login, register, logout }), [user, loading]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+export function useAuth(): AuthContextValue {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error('useAuth must be used within an AuthProvider');
   }
-  return context;
+  return ctx;
 }
-
-export default AuthProvider;

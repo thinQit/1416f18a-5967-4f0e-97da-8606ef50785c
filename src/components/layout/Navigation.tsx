@@ -2,85 +2,96 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/providers/AuthProvider';
 
-const navRoutes = [
-  { href: '/', label: 'Home' },
+const routes = [
+  { href: '/register', label: 'Register' },
+  { href: '/login', label: 'Login' },
   { href: '/products', label: 'Products' },
-  { href: '/products/new', label: 'Add Product' },
-  { href: '/dashboard', label: 'Dashboard' }
+  { href: '/products/new', label: 'Add Product' }
 ];
 
 export function Navigation() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const { isAuthenticated, logout } = useAuth();
-  const filteredRoutes = navRoutes.filter((route) => !route.href.includes(':'));
+
+  const navLinks = routes.filter(route => {
+    if (!isAuthenticated && route.href.startsWith('/products')) return false;
+    if (isAuthenticated && (route.href === '/login' || route.href === '/register')) return false;
+    return true;
+  });
 
   return (
-    <header className="sticky top-0 z-40 border-b bg-white/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-border">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <Link href="/" className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white font-bold">
-            SF
-          </span>
-          <span className="text-lg font-semibold text-slate-900">ShopFlow</span>
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-hover text-white font-bold">
+            MM
+          </div>
+          <span className="text-lg font-semibold text-foreground">MerchMate</span>
         </Link>
         <nav className="hidden items-center gap-6 md:flex">
-          {filteredRoutes.map((route) => (
-            <Link key={route.href} href={route.href} className="text-sm font-medium text-slate-600 hover:text-slate-900">
-              {route.label}
+          {navLinks.map(link => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                'text-sm font-medium text-foreground/80 hover:text-foreground',
+                pathname === link.href && 'text-foreground'
+              )}
+            >
+              {link.label}
             </Link>
           ))}
-          {!isAuthenticated ? (
-            <>
-              <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900">Sign In</Link>
-              <Link href="/register" className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white">Sign Up</Link>
-            </>
-          ) : (
+          {isAuthenticated && (
             <button
-              onClick={logout}
-              className="rounded-md border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:text-slate-900"
+              onClick={() => logout()}
+              className="text-sm font-medium text-foreground/80 hover:text-foreground"
+              aria-label="Logout"
             >
               Logout
             </button>
           )}
         </nav>
         <button
-          aria-label="Toggle navigation menu"
-          onClick={() => setOpen((prev) => !prev)}
-          className="flex items-center rounded-md border border-slate-200 p-2 md:hidden"
+          className="md:hidden inline-flex items-center justify-center rounded-lg border border-border p-2"
+          aria-label="Toggle navigation"
+          onClick={() => setOpen(!open)}
         >
-          <span className="sr-only">Menu</span>
-          <div className="flex flex-col gap-1">
-            <span className="h-0.5 w-5 bg-slate-700" />
-            <span className="h-0.5 w-5 bg-slate-700" />
-            <span className="h-0.5 w-5 bg-slate-700" />
-          </div>
+          <span className="block h-0.5 w-5 bg-foreground"></span>
         </button>
       </div>
-      <div className={cn('md:hidden', open ? 'block' : 'hidden')}>
-        <div className="space-y-3 border-t bg-white px-6 py-4">
-          {filteredRoutes.map((route) => (
-            <Link key={route.href} href={route.href} className="block text-sm font-medium text-slate-600">
-              {route.label}
-            </Link>
-          ))}
-          {!isAuthenticated ? (
-            <div className="flex gap-3">
-              <Link href="/login" className="text-sm font-medium text-slate-600">Sign In</Link>
-              <Link href="/register" className="text-sm font-semibold text-primary">Sign Up</Link>
-            </div>
-          ) : (
-            <button
-              onClick={logout}
-              className="text-sm font-semibold text-slate-600"
-            >
-              Logout
-            </button>
-          )}
+      {open && (
+        <div className="md:hidden border-t border-border bg-white">
+          <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4">
+            {navLinks.map(link => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-sm font-medium text-foreground/80"
+                onClick={() => setOpen(false)}
+              >
+                {link.label}
+              </Link>
+            ))}
+            {isAuthenticated && (
+              <button
+                onClick={() => {
+                  logout();
+                  setOpen(false);
+                }}
+                className="text-sm font-medium text-foreground/80 text-left"
+                aria-label="Logout"
+              >
+                Logout
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </header>
   );
 }

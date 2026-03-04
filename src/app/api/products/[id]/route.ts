@@ -1,118 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import db from '@/lib/db';
-import { getCurrentUser } from '@/lib/server-auth';
+import { getTokenFromHeader, verifyToken } from '@/lib/auth';
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
-  description: z.string().optional(),
-  price: z.number().positive().optional(),
-  currency: z.string().optional(),
-  stock: z.number().int().optional(),
-  images: z.array(z.string()).optional(),
-  isActive: z.boolean().optional()
+  description: z.string().min(2).optional(),
+  price: z.coerce.number().positive().optional(),
+  sku: z.string().min(2).optional(),
+  stock: z.coerce.number().int().nonnegative().optional(),
+  imageUrl: z.string().optional()
+}).refine(data => !data.imageUrl || data.imageUrl === '' || /^https?:\/\//.test(data.imageUrl), {
+  path: ['imageUrl'],
+  message: 'Invalid image URL'
 });
 
-const parseImages = (value: string | null): string[] => {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') ? parsed : [];
-  } catch (_error) {
-    return [];
-  }
-};
+function getToken(request: NextRequest): string | null {
+  const headerToken = getTokenFromHeader(request.headers.get('authorization'));
+  if (headerToken) return headerToken;
+  const cookieToken = request.cookies.get('access_token')?.value || request.cookies.get('token')?.value;
+  return cookieToken ?? null;
+}
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
+    const token = getToken(request);
+    if (!token) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    verifyToken(token);
+
     const product = await db.product.findUnique({ where: { id: params.id } });
     if (!product) {
-      return NextResponse.json({ success: false, error: 'Not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'Product not found' }, { status: 404 });
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...product,
-        images: parseImages(product.images)
-      }
-    });
-  } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Failed to load product' }, { status: 500 });
+    return NextResponse.json({ success: true, data: product });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Request failed';
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const current = await getCurrentUser(request);
-    if (!current) {
+    const token = getToken(request);
+    if (!token) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (current.user.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-    }
+    verifyToken(token);
 
-    const body = await request.json();
-    const data = updateSchema.parse(body);
-
-    const updateData: {
-      name?: string;
-      description?: string;
-      price?: number;
-      currency?: string;
-      stock?: number;
-      images?: string;
-      isActive?: boolean;
-    } = {};
-
-    if (data.name !== undefined) updateData.name = data.name;
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.price !== undefined) updateData.price = data.price;
-    if (data.currency !== undefined) updateData.currency = data.currency;
-    if (data.stock !== undefined) updateData.stock = data.stock;
-    if (data.isActive !== undefined) updateData.isActive = data.isActive;
-    if (data.images !== undefined) updateData.images = JSON.stringify(data.images);
-
-    const product = await db.product.update({
-      where: { id: params.id },
-      data: updateData
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        ...product,
-        images: parseImages(product.images)
-      }
-    });
+    const body = updateSchema.parse(await request.json());
+    const product = await db.product.update({ where: { id: params.id }, data: body });
+    return NextResponse.json({ success: true, data: product });
   } catch (error: unknown) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: 'Validation error', details: error.flatten() },
-        { status: 400 }
-      );
-    }
-    return NextResponse.json({ success: false, error: 'Unable to update product' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const current = await getCurrentUser(request);
-    if (!current) {
+    const token = getToken(request);
+    if (!token) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (current.user.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-    }
+    verifyToken(token);
 
-    await db.product.update({
-      where: { id: params.id },
-      data: { isActive: false }
-    });
-
-    return NextResponse.json({ success: true, data: { message: 'Product deleted' } });
-  } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Unable to delete product' }, { status: 500 });
+    await db.product.delete({ where: { id: params.id } });
+    return NextResponse.json({ success: true, data: { success: true } });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unable to delete product';
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }

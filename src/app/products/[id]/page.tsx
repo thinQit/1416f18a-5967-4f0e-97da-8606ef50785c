@@ -1,133 +1,157 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Card, { CardContent, CardHeader } from '@/components/ui/Card';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
-import Spinner from '@/components/ui/Spinner';
+import Image from 'next/image';
 import { api } from '@/lib/api';
 import { Product } from '@/types';
+import Input from '@/components/ui/Input';
+import Button from '@/components/ui/Button';
+import Spinner from '@/components/ui/Spinner';
+import { useAuth } from '@/providers/AuthProvider';
 
 export default function ProductDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const productId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const productId = useMemo(() => (Array.isArray(params.id) ? params.id[0] : params.id), [params.id]);
   const [product, setProduct] = useState<Product | null>(null);
-  const [form, setForm] = useState({ name: '', description: '', price: 0, currency: '', stock: 0 });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: '', description: '', price: '', sku: '', stock: '', imageUrl: '' });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!productId) return;
-    api
-      .get<Product>(`/api/products/${productId}`)
-      .then((data) => {
-        if (!data?.id) {
-          setProduct(null);
-          return;
-        }
+    if (!authLoading && !isAuthenticated) router.push('/login');
+  }, [authLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!productId) return;
+      setLoading(true);
+      setError('');
+      try {
+        const data = await api.get<Product>(`/api/products/${productId}`);
+        if (!data) return;
         setProduct(data);
         setForm({
-          name: data.name,
-          description: data.description || '',
-          price: data.price,
-          currency: data.currency || 'USD',
-          stock: data.stock || 0
+          name: data?.name ?? '',
+          description: data?.description ?? '',
+          price: data?.price?.toString() ?? '',
+          sku: data?.sku ?? '',
+          stock: data?.stock?.toString() ?? '',
+          imageUrl: data?.imageUrl ?? ''
         });
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load product'))
-      .finally(() => setLoading(false));
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load product');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
   }, [productId]);
 
-  const handleChange = (field: keyof typeof form) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = field === 'price' || field === 'stock' ? Number(event.target.value) : event.target.value;
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    setError(null);
+  const handleSave = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!productId) return;
+    setError('');
     try {
-      const token = localStorage.getItem('shopflow_token') || undefined;
-      const updated = await api.patch<Product>(`/api/products/${productId}`, form, token);
-      if (updated?.id) {
-        setProduct(updated);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to update product');
-    } finally {
-      setSaving(false);
+      await api.put(`/api/products/${productId}`, {
+        name: form.name,
+        description: form.description,
+        price: Number(form.price),
+        sku: form.sku,
+        stock: Number(form.stock),
+        imageUrl: form.imageUrl
+      });
+      router.push('/products');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to update product');
     }
   };
 
   const handleDelete = async () => {
-    setSaving(true);
-    setError(null);
+    if (!productId) return;
+    if (!confirm('Are you sure you want to delete this product?')) return;
     try {
-      const token = localStorage.getItem('shopflow_token') || undefined;
-      await api.delete(`/api/products/${productId}`, token);
+      await api.delete(`/api/products/${productId}`);
       router.push('/products');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to delete product');
-    } finally {
-      setSaving(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to delete product');
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Spinner label="Loading product" />
-      </div>
-    );
-  }
-
-  if (!product) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center text-sm text-slate-600">
-        Product not found.
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-slate-50 py-12">
-      <div className="mx-auto max-w-4xl px-6">
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">{product.name}</h1>
-            <p className="text-slate-600">Update product information or adjust inventory.</p>
+    <div className="min-h-screen bg-muted py-16">
+      <div className="mx-auto max-w-2xl rounded-2xl bg-white p-8 shadow">
+        <h1 className="text-2xl font-semibold text-foreground">Product detail</h1>
+        <p className="mt-2 text-sm text-foreground/70">Edit or remove this product from your catalog.</p>
+        {loading && (
+          <div className="mt-4 flex items-center gap-2 text-sm text-foreground/70">
+            <Spinner /> Loading product...
           </div>
-          <Badge variant={product.isActive ? 'success' : 'warning'}>{product.isActive ? 'Active' : 'Inactive'}</Badge>
-        </div>
-        <Card>
-          <CardHeader>
-            <h2 className="text-xl font-semibold text-slate-900">Edit Product</h2>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        )}
+        {error && <p className="mt-4 text-sm text-error">{error}</p>}
+        {!loading && !error && !product && (
+          <p className="mt-6 text-sm text-foreground/70">Product not found.</p>
+        )}
+        {product && (
+          <form className="mt-6 space-y-4" onSubmit={handleSave}>
+            <div className="overflow-hidden rounded-lg border border-border">
+              <Image
+                src={form.imageUrl || '/images/feature.jpg'}
+                alt={form.name}
+                width={1200}
+                height={675}
+                className="h-48 w-full object-cover"
+              />
+            </div>
+            <Input
+              label="Product name"
+              value={form.name}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })}
+              required
+            />
+            <Input
+              label="Description"
+              value={form.description}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, description: e.target.value })}
+              required
+            />
             <div className="grid gap-4 md:grid-cols-2">
-              <Input label="Name" value={form.name} onChange={handleChange('name')} />
-              <Input label="Currency" value={form.currency} onChange={handleChange('currency')} />
-              <div className="md:col-span-2">
-                <Input label="Description" value={form.description} onChange={handleChange('description')} />
-              </div>
-              <Input label="Price" type="number" step="0.01" value={form.price} onChange={handleChange('price')} />
-              <Input label="Stock" type="number" value={form.stock} onChange={handleChange('stock')} />
+              <Input
+                label="Price"
+                type="number"
+                value={form.price}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, price: e.target.value })}
+                required
+              />
+              <Input
+                label="SKU"
+                value={form.sku}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, sku: e.target.value })}
+                required
+              />
             </div>
-            {error && <p className="text-sm text-error">{error}</p>}
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={handleSave} variant="primary" disabled={saving}>
-                {saving ? 'Saving...' : 'Save changes'}
-              </Button>
-              <Button onClick={handleDelete} variant="destructive" disabled={saving}>
-                Delete product
-              </Button>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input
+                label="Stock"
+                type="number"
+                value={form.stock}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, stock: e.target.value })}
+                required
+              />
+              <Input
+                label="Image URL"
+                value={form.imageUrl}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, imageUrl: e.target.value })}
+              />
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex flex-wrap gap-4">
+              <Button type="submit">Save changes</Button>
+              <Button type="button" variant="destructive" onClick={handleDelete}>Delete product</Button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

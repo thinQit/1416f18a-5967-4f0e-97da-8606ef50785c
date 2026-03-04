@@ -1,67 +1,86 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
-const db = new PrismaClient();
+const prisma = new PrismaClient();
 
 async function main() {
-  const adminPassword = await bcrypt.hash('admin1234', 10);
-  const userPassword = await bcrypt.hash('user1234', 10);
+  const passwordHash = await bcrypt.hash('Password123', 10);
 
-  await db.user.create({
-    data: {
-      name: 'Admin User',
-      email: 'admin@shopflow.dev',
-      passwordHash: adminPassword,
-      role: 'admin'
-    }
-  });
+  const admin = await prisma.user.findUnique({ where: { email: 'admin@merchmate.com' } });
+  const user = await prisma.user.findUnique({ where: { email: 'user@merchmate.com' } });
 
-  await db.user.create({
-    data: {
-      name: 'Jamie Customer',
-      email: 'user@shopflow.dev',
-      passwordHash: userPassword,
-      role: 'user'
-    }
-  });
+  const adminUser = admin ??
+    (await prisma.user.create({
+      data: {
+        name: 'MerchMate Admin',
+        email: 'admin@merchmate.com',
+        passwordHash,
+        role: 'admin'
+      }
+    }));
+
+  const regularUser = user ??
+    (await prisma.user.create({
+      data: {
+        name: 'Store Manager',
+        email: 'user@merchmate.com',
+        passwordHash,
+        role: 'user'
+      }
+    }));
 
   const products = [
     {
-      name: 'Flowstate Sneakers',
-      description: 'Lightweight sneakers engineered for all-day comfort and style.',
-      price: 89.99,
-      currency: 'USD',
+      name: 'Streetwear Hoodie',
+      description: 'Heavyweight fleece hoodie with embroidered logo and ribbed cuffs.',
+      price: 79.99,
+      sku: 'MM-HOOD-001',
       stock: 42,
-      images: JSON.stringify(['/images/feature.jpg'])
+      imageUrl: '/images/feature.jpg',
+      createdBy: adminUser.id
     },
     {
-      name: 'Momentum Backpack',
-      description: 'Water-resistant backpack with modular storage for remote teams.',
-      price: 129.0,
-      currency: 'USD',
-      stock: 18,
-      images: JSON.stringify(['/images/hero.jpg'])
+      name: 'Canvas Tote',
+      description: 'Eco-friendly canvas tote bag with reinforced straps.',
+      price: 24.5,
+      sku: 'MM-TOTE-002',
+      stock: 120,
+      imageUrl: '/images/cta.jpg',
+      createdBy: adminUser.id
     },
     {
-      name: 'Aurora Desk Lamp',
-      description: 'Minimal LED lamp with adjustable brightness and color temperature.',
-      price: 59.0,
-      currency: 'USD',
-      stock: 27,
-      images: JSON.stringify(['/images/cta.jpg'])
+      name: 'Enamel Mug',
+      description: 'Vintage enamel mug perfect for desk or campfire.',
+      price: 18,
+      sku: 'MM-MUG-003',
+      stock: 75,
+      imageUrl: '/images/hero.jpg',
+      createdBy: regularUser.id
+    },
+    {
+      name: 'Logo Cap',
+      description: 'Adjustable cap with embroidered MerchMate branding.',
+      price: 29.99,
+      sku: 'MM-CAP-004',
+      stock: 55,
+      imageUrl: '/images/feature.jpg',
+      createdBy: regularUser.id
     }
   ];
 
   for (const product of products) {
-    await db.product.create({ data: product });
+    const existing = await prisma.product.findUnique({ where: { sku: product.sku } });
+    if (!existing) {
+      await prisma.product.create({ data: product });
+    }
   }
 }
 
 main()
-  .catch((error: unknown) => {
+  .catch((error) => {
     console.error(error);
     process.exit(1);
   })
   .finally(async () => {
-    await db.$disconnect();
+    await prisma.$disconnect();
   });

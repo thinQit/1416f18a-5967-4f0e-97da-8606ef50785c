@@ -8,34 +8,28 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  name         String?
-  email        String   @unique
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
   passwordHash String
-  role         String   @default("user")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@index([email])
+  role         String    @default("user")
+  createdAt    DateTime  @default(now())
+  products     Product[]
 }
 
 model Product {
   id          String   @id @default(uuid())
   name        String
-  description String?
+  description String
   price       Float
-  currency    String   @default("USD")
-  stock       Int      @default(0)
-  images      String   @default("[]")
-  isActive    Boolean  @default(true)
+  sku         String
+  stock       Int
+  imageUrl    String   @default("")
+  createdBy   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  creator     User     @relation(fields: [createdBy], references: [id])
 
-  @@index([name])
-}
-
-model AuthSession {
-  id        String   @id @default(uuid())
-  token     String   @unique
-  expiresAt DateTime
+  @@index([sku])
+  @@index([createdBy])
 }

@@ -1,34 +1,32 @@
-import type React from 'react';
-import { cn } from '@/lib/utils';
+import React from 'react';
 
-export interface SpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
-  size?: 'sm' | 'md' | 'lg';
-  colorClassName?: string;
-}
-
-const sizeMap: Record<NonNullable<SpinnerProps['size']>, string> = {
-  sm: 'h-4 w-4 border-2',
-  md: 'h-6 w-6 border-2',
-  lg: 'h-10 w-10 border-4'
+type SpinnerProps = {
+  className?: string;
+  size?: number;
 };
 
-export default function Spinner({
-  size = 'md',
-  colorClassName = 'border-blue-600',
-  className,
-  ...props
-}: SpinnerProps) {
+function cn(...classes: Array<string | undefined | null | false>) {
+  return classes.filter(Boolean).join(' ');
+}
+
+export default function Spinner({ className, size = 24 }: SpinnerProps) {
   return (
-    <div
+    <svg
+      className={cn('animate-spin text-blue-600', className)}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="Loading"
       role="status"
-      aria-live="polite"
-      className={cn(
-        'inline-block animate-spin rounded-full border-solid border-gray-200 border-t-transparent',
-        sizeMap[size],
-        colorClassName,
-        className
-      )}
-      {...props}
-    />
+    >
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+      />
+    </svg>
   );
 }

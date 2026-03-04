@@ -1,83 +1,50 @@
-export type ApiResponse<T> = {
-  success: boolean;
-  data?: T;
-  error?: string;
-  details?: unknown;
+export type ApiError = {
+  message: string;
+  status?: number;
 };
 
-async function handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
-  const text = await response.text();
-  const json = text ? (JSON.parse(text) as ApiResponse<T>) : undefined;
-
-  if (!response.ok) {
-    return (
-      json ?? {
-        success: false,
-        error: response.statusText || 'Request failed'
-      }
-    );
+async function parseResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const message = await res.text();
+    const err: ApiError = { message: message || res.statusText, status: res.status };
+    throw err;
   }
-
-  return (
-    json ?? {
-      success: true
-    }
-  );
+  return (await res.json()) as T;
 }
 
-export async function apiGet<T>(url: string, init?: RequestInit): Promise<ApiResponse<T>> {
-  const response = await fetch(url, {
-    ...init,
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {})
-    }
-  });
-  return handleResponse<T>(response);
+export async function apiGet<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, { method: 'GET', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
+  return parseResponse<T>(res);
 }
 
-export async function apiPost<T>(url: string, body?: unknown, init?: RequestInit): Promise<ApiResponse<T>> {
-  const response = await fetch(url, {
-    ...init,
+export async function apiPost<T, B = unknown>(url: string, body?: B, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {})
-    },
-    body: body === undefined ? undefined : JSON.stringify(body)
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
   });
-  return handleResponse<T>(response);
+  return parseResponse<T>(res);
 }
 
-export async function apiPatch<T>(url: string, body?: unknown, init?: RequestInit): Promise<ApiResponse<T>> {
-  const response = await fetch(url, {
+export async function apiPut<T, B = unknown>(url: string, body?: B, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    method: 'PUT',
+    body: body !== undefined ? JSON.stringify(body) : undefined,
     ...init,
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {})
-    },
-    body: body === undefined ? undefined : JSON.stringify(body)
+    headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) },
   });
-  return handleResponse<T>(response);
+  return parseResponse<T>(res);
 }
 
-export async function apiDelete<T>(url: string, init?: RequestInit): Promise<ApiResponse<T>> {
-  const response = await fetch(url, {
-    ...init,
-    method: 'DELETE',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {})
-    }
-  });
-  return handleResponse<T>(response);
+export async function apiDelete<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, { method: 'DELETE', ...init, headers: { 'Content-Type': 'application/json', ...(init?.headers || {}) } });
+  return parseResponse<T>(res);
 }
 
 export const api = {
   get: apiGet,
   post: apiPost,
-  patch: apiPatch,
-  delete: apiDelete
+  put: apiPut,
+  delete: apiDelete,
 };

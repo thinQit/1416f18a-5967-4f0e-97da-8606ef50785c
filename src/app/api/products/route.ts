@@ -1,41 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import db from '@/lib/db';
-import { getCurrentUser } from '@/lib/server-auth';
+import { getTokenFromHeader, verifyToken } from '@/lib/auth';
 
-const productSchema = z.object({
+const createSchema = z.object({
   name: z.string().min(2),
-  description: z.string().optional(),
-  price: z.number().positive(),
-  currency: z.string().optional(),
-  stock: z.number().int().optional(),
-  images: z.array(z.string()).optional()
+  description: z.string().min(2),
+  price: z.coerce.number().positive(),
+  sku: z.string().min(2),
+  stock: z.coerce.number().int().nonnegative(),
+  imageUrl: z.string().optional().default('')
+}).refine(data => data.imageUrl === '' || /^https?:\/\//.test(data.imageUrl), {
+  path: ['imageUrl'],
+  message: 'Invalid image URL'
 });
 
-const parseImages = (value: string | null): string[] => {
-  if (!value) return [];
-  try {
-    const parsed = JSON.parse(value) as unknown;
-    return Array.isArray(parsed) && parsed.every((item) => typeof item === 'string') ? parsed : [];
-  } catch (_error) {
-    return [];
-  }
-};
+function getToken(request: NextRequest): string | null {
+  const headerToken = getTokenFromHeader(request.headers.get('authorization'));
+  if (headerToken) return headerToken;
+  const cookieToken = request.cookies.get('access_token')?.value || request.cookies.get('token')?.value;
+  return cookieToken ?? null;
+}
 
 export async function GET(request: NextRequest) {
   try {
+    const token = getToken(request);
+    if (!token) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+    verifyToken(token);
+
     const { searchParams } = new URL(request.url);
-    const pageParam = Number(searchParams.get('page') || 1);
-    const limitParam = Number(searchParams.get('limit') || 10);
-    const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
-    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 50) : 10;
-    const q = searchParams.get('q') || '';
+    const page = Math.max(Number(searchParams.get('page') || 1), 1);
+    const limit = Math.min(Math.max(Number(searchParams.get('limit') || 20), 1), 100);
+    const search = searchParams.get('search')?.trim();
 
-    const where = q
-      ? { isActive: true, OR: [{ name: { contains: q } }, { description: { contains: q } }] }
-      : { isActive: true };
+    const where = search
+      ? { OR: [{ name: { contains: search } }, { sku: { contains: search } }] }
+      : {};
 
-    const [products, total] = await Promise.all([
+    const [items, total] = await Promise.all([
       db.product.findMany({
         where,
         skip: (page - 1) * limit,
@@ -45,64 +49,42 @@ export async function GET(request: NextRequest) {
       db.product.count({ where })
     ]);
 
-    const items = products.map((product) => ({
-      ...product,
-      images: parseImages(product.images)
-    }));
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        items,
-        meta: { page, limit, total }
-      }
-    });
-  } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Failed to fetch products' }, { status: 500 });
+    return NextResponse.json({ success: true, data: { items, total, page, limit } });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Request failed';
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const current = await getCurrentUser(request);
-    if (!current) {
+    const token = getToken(request);
+    if (!token) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (current.user.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+
+    const payload = verifyToken(token);
+    const userId = typeof payload.sub === 'string' ? payload.sub : null;
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const data = productSchema.parse(body);
-
+    const body = createSchema.parse(await request.json());
     const product = await db.product.create({
       data: {
-        name: data.name,
-        description: data.description,
-        price: data.price,
-        currency: data.currency || 'USD',
-        stock: data.stock ?? 0,
-        images: JSON.stringify(data.images ?? [])
+        name: body.name,
+        description: body.description,
+        price: body.price,
+        sku: body.sku,
+        stock: body.stock,
+        imageUrl: body.imageUrl ?? '',
+        createdBy: userId
       }
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: {
-          ...product,
-          images: parseImages(product.images)
-        }
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true, data: product }, { status: 201 });
   } catch (error: unknown) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: 'Validation error', details: error.flatten() },
-        { status: 400 }
-      );
-    }
-    return NextResponse.json({ success: false, error: 'Unable to create product' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }

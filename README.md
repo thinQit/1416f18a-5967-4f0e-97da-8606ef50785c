@@ -1,28 +1,22 @@
-# ShopFlow
+# MerchMate
 
-ShopFlow is a TypeScript-based admin + storefront starter for managing users and products. It includes registration/login with JWT auth, product CRUD APIs, a responsive storefront UI, and an admin dashboard.
+MerchMate is a lightweight admin & storefront dashboard for managing products and users. It provides JWT-based authentication, product CRUD operations, and a responsive UI for inventory management.
 
 ## Features
-- JWT-based authentication with bcrypt password hashing
+- User registration and login with JWT cookies
 - Product CRUD with pagination and search
-- Admin dashboard with catalog insights
-- Responsive UI built with Next.js 14 + Tailwind CSS
-- Prisma ORM with SQLite for local development
+- Protected routes and API endpoints
+- Image upload endpoint (placeholder URL)
+- Prisma + SQLite for local development
 
 ## Setup
-1. Copy environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-2. Install dependencies:
+1. Copy `.env.example` to `.env` and update values.
+2. Install dependencies and generate Prisma client:
    ```bash
    npm install
-   ```
-3. Generate Prisma client:
-   ```bash
    npx prisma generate
    ```
-4. Run the app:
+3. Run the dev server:
    ```bash
    npm run dev
    ```
@@ -32,15 +26,14 @@ ShopFlow is a TypeScript-based admin + storefront starter for managing users and
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
-- `GET /api/auth/me`
 - `GET /api/users/me`
 - `GET /api/products`
+- `POST /api/products`
 - `GET /api/products/:id`
-- `POST /api/products` (auth required, admin role)
-- `PATCH /api/products/:id` (auth required, admin role)
-- `DELETE /api/products/:id` (auth required, admin role)
-- `POST /api/products/:id/images` (auth required, admin role)
+- `PUT /api/products/:id`
+- `DELETE /api/products/:id`
+- `POST /api/uploads`
 
 ## Notes
-- Product management routes enforce an `admin` role. Update a user role directly in the database for testing.
-- Store JWT tokens in `localStorage` under `shopflow_token`.
+- Uploads endpoint returns a placeholder URL for now.
+- Update middleware to fit production auth requirements.

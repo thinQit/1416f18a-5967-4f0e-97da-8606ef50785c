@@ -1,87 +1,145 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Card, { CardContent, CardHeader } from '@/components/ui/Card';
+import Image from 'next/image';
+import { api } from '@/lib/api';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
-import { api } from '@/lib/api';
+import Spinner from '@/components/ui/Spinner';
 import { useAuth } from '@/providers/AuthProvider';
 
-interface ProductPayload {
-  name: string;
-  description?: string;
-  price: number;
-  currency?: string;
-  stock?: number;
+interface UploadResponse {
+  url: string;
 }
 
 export default function NewProductPage() {
   const router = useRouter();
-  const { user } = useAuth();
-  const [form, setForm] = useState<ProductPayload>({
-    name: '',
-    description: '',
-    price: 0,
-    currency: 'USD',
-    stock: 0
-  });
-  const [error, setError] = useState<string | null>(null);
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [form, setForm] = useState({ name: '', description: '', price: '', sku: '', stock: '', imageUrl: '' });
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (field: keyof ProductPayload) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = field === 'price' || field === 'stock' ? Number(event.target.value) : event.target.value;
-    setForm((prev) => ({ ...prev, [field]: value }));
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) router.push('/login');
+  }, [authLoading, isAuthenticated, router]);
+
+  const handleUpload = async (): Promise<string | null> => {
+    if (!file) return null;
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await fetch('/api/uploads', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as UploadResponse;
+    return data?.url ?? null;
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setLoading(true);
-    setError(null);
+    setError('');
     try {
-      const token = localStorage.getItem('shopflow_token') || undefined;
-      await api.post('/api/products', form, token);
+      const uploadedUrl = await handleUpload();
+      await api.post('/api/products', {
+        name: form.name,
+        description: form.description,
+        price: Number(form.price),
+        sku: form.sku,
+        stock: Number(form.stock),
+        imageUrl: uploadedUrl || form.imageUrl
+      });
       router.push('/products');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create product');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create product');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-slate-50 py-16">
-      <div className="mx-auto max-w-4xl px-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Add Product</h1>
-          <p className="text-slate-600">Create a new catalog item for ShopFlow.</p>
-          {user && <p className="text-xs text-slate-500">Signed in as {user.email}</p>}
-        </div>
-        <Card>
-          <CardHeader>
-            <h2 className="text-xl font-semibold text-slate-900">Product Details</h2>
-            <p className="text-sm text-slate-500">Fill in the information below to publish the product.</p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="grid gap-4 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <Input label="Product name" value={form.name} onChange={handleChange('name')} required />
+    <div className="min-h-screen bg-muted py-16">
+      <div className="mx-auto max-w-2xl rounded-2xl bg-white p-8 shadow">
+        <h1 className="text-2xl font-semibold text-foreground">Add a new product</h1>
+        <p className="mt-2 text-sm text-foreground/70">Capture details like price, SKU, and inventory levels.</p>
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          <Input
+            label="Product name"
+            value={form.name}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })}
+            required
+          />
+          <Input
+            label="Description"
+            value={form.description}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, description: e.target.value })}
+            required
+          />
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Price"
+              type="number"
+              value={form.price}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, price: e.target.value })}
+              required
+            />
+            <Input
+              label="SKU"
+              value={form.sku}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, sku: e.target.value })}
+              required
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <Input
+              label="Stock"
+              type="number"
+              value={form.stock}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, stock: e.target.value })}
+              required
+            />
+            <Input
+              label="Image URL"
+              value={form.imageUrl}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, imageUrl: e.target.value })}
+              placeholder="https://"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Upload image</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] ?? null)}
+            />
+            {file && (
+              <div className="overflow-hidden rounded-lg border border-border">
+                <Image
+                  src={URL.createObjectURL(file)}
+                  alt="Uploaded preview"
+                  width={1200}
+                  height={675}
+                  className="h-40 w-full object-cover"
+                />
               </div>
-              <div className="md:col-span-2">
-                <Input label="Description" value={form.description} onChange={handleChange('description')} />
-              </div>
-              <Input label="Price" type="number" step="0.01" value={form.price} onChange={handleChange('price')} required />
-              <Input label="Currency" value={form.currency} onChange={handleChange('currency')} />
-              <Input label="Stock" type="number" value={form.stock} onChange={handleChange('stock')} />
-              <div className="md:col-span-2">
-                {error && <p className="text-sm text-error">{error}</p>}
-                <Button type="submit" variant="primary" className="w-full" disabled={loading}>
-                  {loading ? 'Creating product...' : 'Create product'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+            )}
+          </div>
+          {error && <p className="text-sm text-error">{error}</p>}
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <Spinner className="h-4 w-4" />
+                Saving...
+              </span>
+            ) : (
+              'Save product'
+            )}
+          </Button>
+        </form>
       </div>
     </div>
   );

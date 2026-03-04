@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTokenFromHeader } from '@/lib/auth';
 
-export async function POST(request: NextRequest) {
-  try {
-    const token = getTokenFromHeader(request.headers.get('authorization'));
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-
-    return NextResponse.json({ success: true, data: { message: 'Logged out' } });
-  } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Logout failed' }, { status: 500 });
-  }
+export async function POST(_request: NextRequest) {
+  const response = NextResponse.json({ success: true, data: { success: true } });
+  response.cookies.set('access_token', '', { httpOnly: true, sameSite: 'strict', maxAge: 0, path: '/' });
+  return response;
 }

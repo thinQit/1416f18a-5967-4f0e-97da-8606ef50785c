@@ -1,42 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import db from '@/lib/db';
-import { hashPassword } from '@/lib/auth';
-import { getCurrentUser } from '@/lib/server-auth';
+import { getTokenFromHeader, hashPassword, verifyToken } from '@/lib/auth';
 
 const createSchema = z.object({
-  name: z.string().min(2).optional(),
+  name: z.string().min(2),
   email: z.string().email(),
-  password: z.string().min(8),
-  role: z.string().optional()
+  password: z.string().min(8).regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, 'Password must include a letter and a number'),
+  role: z.enum(['admin', 'user']).optional()
 });
 
-const mapUser = (user: { id: string; name: string | null; email: string; role: string; createdAt: Date; updatedAt: Date }) => ({
-  id: user.id,
-  name: user.name,
-  email: user.email,
-  role: user.role,
-  createdAt: user.createdAt.toISOString(),
-  updatedAt: user.updatedAt.toISOString()
-});
+function getToken(request: NextRequest): string | null {
+  const headerToken = getTokenFromHeader(request.headers.get('authorization'));
+  if (headerToken) return headerToken;
+  const cookieToken = request.cookies.get('access_token')?.value || request.cookies.get('token')?.value;
+  return cookieToken ?? null;
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const current = await getCurrentUser(request);
-    if (!current) {
+    const token = getToken(request);
+    if (!token) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (current.user.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-    }
+    verifyToken(token);
 
     const { searchParams } = new URL(request.url);
-    const pageParam = Number(searchParams.get('page') || 1);
-    const limitParam = Number(searchParams.get('limit') || 10);
-    const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
-    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 50) : 10;
+    const page = Math.max(Number(searchParams.get('page') || 1), 1);
+    const limit = Math.min(Math.max(Number(searchParams.get('limit') || 20), 1), 100);
 
-    const [users, total] = await Promise.all([
+    const [items, total] = await Promise.all([
       db.user.findMany({
         skip: (page - 1) * limit,
         take: limit,
@@ -45,60 +38,57 @@ export async function GET(request: NextRequest) {
       db.user.count()
     ]);
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        items: users.map(mapUser),
-        meta: { page, limit, total }
-      }
-    });
-  } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Failed to load users' }, { status: 500 });
+    const data = items.map(user => ({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role as 'admin' | 'user',
+      createdAt: user.createdAt.toISOString()
+    }));
+
+    return NextResponse.json({ success: true, data: { items: data, total, page, limit } });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Request failed';
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const current = await getCurrentUser(request);
-    if (!current) {
+    const token = getToken(request);
+    if (!token) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
-    if (current.user.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
-    }
+    verifyToken(token);
 
-    const body = await request.json();
-    const data = createSchema.parse(body);
-
-    const existing = await db.user.findUnique({ where: { email: data.email } });
+    const body = createSchema.parse(await request.json());
+    const existing = await db.user.findUnique({ where: { email: body.email } });
     if (existing) {
-      return NextResponse.json({ success: false, error: 'Email already registered' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Email already in use' }, { status: 400 });
     }
 
-    const passwordHash = await hashPassword(data.password);
+    const passwordHash = await hashPassword(body.password);
     const user = await db.user.create({
       data: {
-        name: data.name,
-        email: data.email,
+        name: body.name,
+        email: body.email,
         passwordHash,
-        role: data.role || 'user'
+        role: body.role ?? 'user'
       }
     });
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: mapUser(user)
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role as 'admin' | 'user',
+        createdAt: user.createdAt.toISOString()
+      }
+    }, { status: 201 });
   } catch (error: unknown) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: 'Validation error', details: error.flatten() },
-        { status: 400 }
-      );
-    }
-    return NextResponse.json({ success: false, error: 'Unable to create user' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Invalid request';
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
