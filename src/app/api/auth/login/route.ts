@@ -5,55 +5,49 @@ import { signToken, verifyPassword } from '@/lib/auth';
 
 const schema = z.object({
   email: z.string().email(),
-  password: z.string().min(1),
-  remember: z.boolean().optional()
+  password: z.string().min(1)
 });
-
-function safeUser(user: { id: string; name: string; email: string; role: string; createdAt: Date }) {
-  return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role as 'admin' | 'user',
-    createdAt: user.createdAt.toISOString()
-  };
-}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = schema.parse(await request.json());
-    const user = await db.user.findUnique({ where: { email: body.email } });
+    const body = await request.json();
+    const data = schema.parse(body);
+
+    const user = await db.user.findUnique({ where: { email: data.email } });
     if (!user) {
-      return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'invalid_credentials' }, { status: 401 });
     }
 
-    const valid = await verifyPassword(body.password, user.passwordHash);
+    const valid = await verifyPassword(data.password, user.password_hash);
     if (!valid) {
-      return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'invalid_credentials' }, { status: 401 });
     }
 
-    const token = signToken({ sub: user.id, email: user.email, role: user.role });
-    const expiresIn = 60 * 60 * 24;
-    const response = NextResponse.json({
-      success: true,
+    const token = signToken({ id: user.id, email: user.email, role: user.role });
+    const expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await db.authSession.create({
       data: {
-        accessToken: token,
-        expiresIn,
-        user: safeUser(user)
+        token,
+        expires_at,
+        user_id: user.id
       }
     });
 
-    response.cookies.set('access_token', token, {
-      httpOnly: true,
-      sameSite: 'strict',
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: body.remember ? 60 * 60 * 24 * 7 : expiresIn,
-      path: '/'
+    const response = NextResponse.json({
+      success: true,
+      data: {
+        token,
+        expires_at: expires_at.toISOString(),
+        user: { id: user.id, name: user.name, email: user.email }
+      }
     });
+
+    response.cookies.set('token', token, { httpOnly: true, sameSite: 'lax', path: '/' });
 
     return response;
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Invalid request';
+    const message = error instanceof Error ? error.message : 'invalid_request';
     return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }

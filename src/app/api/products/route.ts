@@ -1,90 +1,93 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import type { Prisma } from '@prisma/client';
 import db from '@/lib/db';
-import { getTokenFromHeader, verifyToken } from '@/lib/auth';
+import { getAuthContext } from '@/lib/auth-helpers';
 
 const createSchema = z.object({
-  name: z.string().min(2),
-  description: z.string().min(2),
-  price: z.coerce.number().positive(),
-  sku: z.string().min(2),
-  stock: z.coerce.number().int().nonnegative(),
-  imageUrl: z.string().optional().default('')
-}).refine(data => data.imageUrl === '' || /^https?:\/\//.test(data.imageUrl), {
-  path: ['imageUrl'],
-  message: 'Invalid image URL'
+  title: z.string().min(2),
+  description: z.string().min(1),
+  price: z.number().nonnegative(),
+  inventory: z.number().int().nonnegative().optional(),
+  image_url: z.string().url().optional()
 });
 
-function getToken(request: NextRequest): string | null {
-  const headerToken = getTokenFromHeader(request.headers.get('authorization'));
-  if (headerToken) return headerToken;
-  const cookieToken = request.cookies.get('access_token')?.value || request.cookies.get('token')?.value;
-  return cookieToken ?? null;
-}
+const querySchema = z.object({
+  page: z.string().optional(),
+  per_page: z.string().optional(),
+  q: z.string().optional(),
+  min_price: z.string().optional(),
+  max_price: z.string().optional()
+});
 
 export async function GET(request: NextRequest) {
   try {
-    const token = getToken(request);
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const params = Object.fromEntries(new URL(request.url).searchParams.entries());
+    const parsed = querySchema.parse(params);
+
+    const page = Math.max(1, parseInt(parsed.page ?? '1', 10) || 1);
+    const perPage = Math.min(50, Math.max(1, parseInt(parsed.per_page ?? '12', 10) || 12));
+    const minPrice = Number.isNaN(Number(parsed.min_price)) ? 0 : Number(parsed.min_price);
+    const maxPrice = Number.isNaN(Number(parsed.max_price)) ? 1_000_000 : Number(parsed.max_price);
+    const query = parsed.q ?? '';
+
+    const where: Prisma.ProductWhereInput = {};
+    if (query) {
+      where.title = { contains: query };
     }
-    verifyToken(token);
-
-    const { searchParams } = new URL(request.url);
-    const page = Math.max(Number(searchParams.get('page') || 1), 1);
-    const limit = Math.min(Math.max(Number(searchParams.get('limit') || 20), 1), 100);
-    const search = searchParams.get('search')?.trim();
-
-    const where = search
-      ? { OR: [{ name: { contains: search } }, { sku: { contains: search } }] }
-      : {};
+    if (!Number.isNaN(minPrice) || !Number.isNaN(maxPrice)) {
+      where.price = { gte: minPrice, lte: maxPrice };
+    }
 
     const [items, total] = await Promise.all([
       db.product.findMany({
         where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { createdAt: 'desc' }
+        skip: (page - 1) * perPage,
+        take: perPage,
+        orderBy: { created_at: 'desc' }
       }),
       db.product.count({ where })
     ]);
 
-    return NextResponse.json({ success: true, data: { items, total, page, limit } });
+    return NextResponse.json({
+      success: true,
+      data: {
+        items,
+        total,
+        page,
+        per_page: perPage
+      }
+    });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Request failed';
+    const message = error instanceof Error ? error.message : 'invalid_request';
     return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const token = getToken(request);
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const auth = await getAuthContext(request);
+    if (!auth) {
+      return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 });
     }
 
-    const payload = verifyToken(token);
-    const userId = typeof payload.sub === 'string' ? payload.sub : null;
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
+    const body = await request.json();
+    const data = createSchema.parse(body);
 
-    const body = createSchema.parse(await request.json());
     const product = await db.product.create({
       data: {
-        name: body.name,
-        description: body.description,
-        price: body.price,
-        sku: body.sku,
-        stock: body.stock,
-        imageUrl: body.imageUrl ?? '',
-        createdBy: userId
+        title: data.title,
+        description: data.description,
+        price: data.price,
+        inventory: data.inventory ?? 0,
+        image_url: data.image_url,
+        owner_id: auth.user.id
       }
     });
 
     return NextResponse.json({ success: true, data: product }, { status: 201 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Invalid request';
+    const message = error instanceof Error ? error.message : 'invalid_request';
     return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }

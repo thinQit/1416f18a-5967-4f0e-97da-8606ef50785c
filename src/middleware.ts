@@ -3,35 +3,45 @@ export const runtime = 'nodejs';
 import { NextRequest, NextResponse } from 'next/server';
 import { getTokenFromHeader, verifyToken } from '@/lib/auth';
 
+const protectedPages = ['/dashboard', '/products/new'];
+const publicApiPaths = ['/api/health', '/api/auth/login', '/api/auth/register'];
+
+function isPublicApi(pathname: string, method: string): boolean {
+  if (publicApiPaths.includes(pathname)) return true;
+  if (pathname.startsWith('/api/products') && method === 'GET') return true;
+  return false;
+}
+
 function getToken(request: NextRequest): string | null {
-  const headerToken = getTokenFromHeader(request.headers.get('authorization'));
-  if (headerToken) return headerToken;
-  const cookieToken = request.cookies.get('access_token')?.value || request.cookies.get('token')?.value;
-  return cookieToken ?? null;
+  return getTokenFromHeader(request.headers.get('authorization')) ?? request.cookies.get('token')?.value ?? null;
 }
 
 export function middleware(request: NextRequest) {
-  const token = getToken(request);
-  const isApiRoute = request.nextUrl.pathname.startsWith('/api');
+  const { pathname } = request.nextUrl;
 
-  if (!token) {
-    if (isApiRoute) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  if (pathname.startsWith('/api')) {
+    if (isPublicApi(pathname, request.method)) return NextResponse.next();
+    const token = getToken(request);
+    if (!token) {
+      return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 });
     }
-    return NextResponse.redirect(new URL('/login', request.url));
+    try {
+      verifyToken(token);
+      return NextResponse.next();
+    } catch {
+      return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 });
+    }
   }
 
-  try {
-    verifyToken(token);
-    return NextResponse.next();
-  } catch (_error) {
-    if (isApiRoute) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  if (protectedPages.some((path) => pathname.startsWith(path))) {
+    const token = request.cookies.get('token')?.value;
+    if (!token) return NextResponse.redirect(new URL('/login', request.url));
+    try {
+      verifyToken(token);
+    } catch {
+      return NextResponse.redirect(new URL('/login', request.url));
     }
-    return NextResponse.redirect(new URL('/login', request.url));
   }
+
+  return NextResponse.next();
 }
-
-export const config = {
-  matcher: ['/products/:path*', '/api/products/:path*', '/api/users/:path*', '/api/auth/me', '/api/uploads']
-};

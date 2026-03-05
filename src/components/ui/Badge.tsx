@@ -1,29 +1,12 @@
-import React from 'react';
+import type { HTMLAttributes } from 'react';
 
-type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'danger';
-
-type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & {
-  variant?: BadgeVariant;
-};
-
-function cn(...classes: Array<string | undefined | null | false>) {
-  return classes.filter(Boolean).join(' ');
-}
-
-const variantClasses: Record<BadgeVariant, string> = {
-  default: 'bg-blue-100 text-blue-800',
-  secondary: 'bg-gray-100 text-gray-800',
-  outline: 'border border-gray-300 text-gray-800',
-  success: 'bg-green-100 text-green-800',
-  warning: 'bg-yellow-100 text-yellow-800',
-  danger: 'bg-red-100 text-red-800',
-};
-
-export default function Badge({ className, variant = 'default', ...props }: BadgeProps) {
+export function Badge({ className = '', ...props }: HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
-      className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium', variantClasses[variant], className)}
+      className={`inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground ${className}`}
       {...props}
     />
   );
 }
+
+export default Badge;

@@ -1,146 +1,126 @@
-import Image from 'next/image';
-import Link from 'next/link';
-import Card, { CardContent, CardHeader } from '@/components/ui/Card';
-import Button from '@/components/ui/Button';
+import Image from "next/image";
+import Link from "next/link";
+import { Button } from "@/components/ui/Button";
+import { Card, CardContent } from "@/components/ui/Card";
 
 export default function Page() {
   return (
-    <div className="bg-white">
-      <section className="relative overflow-hidden bg-gradient-to-br from-primary/10 via-white to-primary/5">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="space-y-6">
-            <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-              MerchMate Admin & Storefront
-            </span>
-            <h1 className="text-4xl font-bold text-foreground md:text-5xl">
-              Run your product catalog with clarity, speed, and secure access.
+    <main className="bg-white">
+      <section className="px-6 py-16">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-2">
+          <div>
+            <p className="text-sm font-semibold text-primary">ProdDash</p>
+            <h1 className="mt-3 text-4xl font-bold text-foreground md:text-5xl">
+              Run your product operations with clarity and speed.
             </h1>
-            <p className="text-lg text-foreground/70">
-              MerchMate is a lightweight admin & storefront dashboard built for modern teams. Manage products, track inventory, and onboard users
-              with secure JWT-based authentication and a clean, responsive interface.
+            <p className="mt-4 text-base text-secondary">
+              ProdDash brings lightweight product management, secure access, and fast listings together for small e-commerce teams.
+              Launch inventory workflows in minutes and keep stakeholders aligned.
             </p>
-            <div className="flex flex-wrap gap-4">
-              <Button asChild>
-                <Link href="/register">Create your account</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/products">View product listing</Link>
-              </Button>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href="/products">
+                <Button size="lg">Explore Products</Button>
+              </Link>
+              <Link href="/register">
+                <Button variant="outline" size="lg">
+                  Create Account
+                </Button>
+              </Link>
             </div>
           </div>
-          <div className="space-y-6">
-            <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-lg">
-              <Image src="/images/hero.jpg" alt="MerchMate dashboard preview" width={1200} height={675} className="h-56 w-full object-cover" />
-              <div className="p-6">
-                <p className="text-sm font-semibold text-primary">Live inventory overview</p>
-                <h3 className="mt-2 text-lg font-semibold text-foreground">Keep every SKU organized and in stock.</h3>
-              </div>
+          <div className="relative">
+            <Image
+              src="/images/hero.jpg"
+              alt="Product dashboard overview"
+              width={1200}
+              height={675}
+              className="rounded-2xl object-cover shadow-lg"
+            />
+            <div className="absolute -bottom-6 -left-6 hidden rounded-xl border border-border bg-white p-4 shadow-md md:block">
+              <p className="text-sm font-semibold text-foreground">Trusted by agile product teams</p>
+              <p className="text-xs text-secondary">Secure access + inventory workflows</p>
             </div>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <h3 className="text-lg font-semibold text-foreground">Inventory Snapshot</h3>
-                <span className="rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">Live</span>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {['Streetwear Hoodie', 'Canvas Tote', 'Enamel Mug'].map((item, index) => (
-                  <div key={item} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-                    <div>
-                      <p className="font-medium text-foreground">{item}</p>
-                      <p className="text-xs text-foreground/60">SKU MM-00{index + 1}</p>
-                    </div>
-                    <span className="text-sm font-semibold text-foreground">{24 - index * 5} in stock</span>
-                  </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-muted px-6 py-16">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid gap-10 lg:grid-cols-2 items-center">
+            <div>
+              <Image
+                src="/images/feature.jpg"
+                alt="Product listing preview"
+                width={1200}
+                height={675}
+                className="rounded-2xl object-cover shadow"
+              />
+            </div>
+            <div>
+              <h2 className="text-3xl font-bold text-foreground">Built for modern inventory teams</h2>
+              <p className="mt-3 text-secondary">Everything you need to go from idea to live catalog.</p>
+              <div className="mt-8 grid gap-6 sm:grid-cols-2">
+                {[
+                  { title: "Product CRUD", desc: "Manage titles, descriptions, pricing, and inventory with an authenticated workflow." },
+                  { title: "Insightful dashboard", desc: "Track your catalog health and quickly access top products." },
+                  { title: "API-first", desc: "Built with robust endpoints ready for integrations and automation." },
+                  { title: "Image ready", desc: "Upload product images with validation and hosted URLs." }
+                ].map((feature) => (
+                  <Card key={feature.title}>
+                    <CardContent>
+                      <h3 className="text-lg font-semibold text-foreground">{feature.title}</h3>
+                      <p className="mt-2 text-sm text-secondary">{feature.desc}</p>
+                    </CardContent>
+                  </Card>
                 ))}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-white py-16">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="grid gap-10 lg:grid-cols-[0.8fr_1.2fr]">
-            <div className="space-y-4">
-              <p className="text-sm font-semibold text-primary">Why MerchMate</p>
-              <h2 className="text-3xl font-bold text-foreground">Everything you need to manage products</h2>
-              <p className="text-foreground/70">
-                Purpose-built tools for merchandising teams and growing storefronts with secure access, fast catalog updates, and a clear view of
-                inventory performance.
-              </p>
-              <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-                <Image src="/images/feature.jpg" alt="Product management feature" width={1200} height={675} className="h-56 w-full object-cover" />
               </div>
             </div>
-            <div className="grid gap-6 md:grid-cols-2">
-              {[
-                { title: 'Secure Auth', desc: 'JWT access + refresh tokens with protected routes and session handling.' },
-                { title: 'Product CRUD', desc: 'Add, edit, delete, and manage SKU, stock, and pricing in minutes.' },
-                { title: 'Smart Listings', desc: 'Paginated product catalog with search by name or SKU.' },
-                { title: 'Media Uploads', desc: 'Upload product images and keep the catalog consistent across devices.' }
-              ].map(feature => (
-                <Card key={feature.title}>
-                  <CardContent className="space-y-2">
-                    <h3 className="text-lg font-semibold text-foreground">{feature.title}</h3>
-                    <p className="text-sm text-foreground/70">{feature.desc}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
           </div>
         </div>
       </section>
 
-      <section className="bg-muted py-16">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="grid gap-8 lg:grid-cols-3">
-            {[
-              { label: 'Products managed', value: '2,400+' },
-              { label: 'Avg. onboarding time', value: '12 min' },
-              { label: 'Uptime monitored', value: '99.9%' }
-            ].map(stat => (
-              <Card key={stat.label} className="text-center">
-                <CardContent>
-                  <p className="text-3xl font-bold text-foreground">{stat.value}</p>
-                  <p className="mt-2 text-sm text-foreground/70">{stat.label}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="bg-white py-16">
-        <div className="mx-auto max-w-6xl px-4">
-          <div className="grid items-center gap-10 rounded-2xl bg-primary/10 p-10 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="space-y-4">
-              <h2 className="text-3xl font-bold text-foreground">Ready to streamline your merchandise workflow?</h2>
-              <p className="text-foreground/70">Start with MerchMate and keep your catalog tidy, secure, and ready to sell.</p>
-              <div className="flex flex-wrap gap-4">
-                <Button asChild>
-                  <Link href="/register">Get started</Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link href="/login">Sign in</Link>
-                </Button>
+      <section className="px-6 py-16">
+        <div className="mx-auto max-w-6xl rounded-2xl border border-border bg-white p-6 md:p-10">
+          <div className="grid gap-8 lg:grid-cols-2 items-center">
+            <div>
+              <h2 className="text-3xl font-bold text-foreground">Ready to get your catalog in shape?</h2>
+              <p className="mt-3 text-secondary">Start with ProdDash today and bring order to your product workflow.</p>
+              <div className="mt-6">
+                <Link href="/register">
+                  <Button size="lg">Start free</Button>
+                </Link>
               </div>
             </div>
-            <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-sm">
-              <Image src="/images/cta.jpg" alt="MerchMate call to action" width={1200} height={675} className="h-56 w-full object-cover" />
+            <div>
+              <Image
+                src="/images/cta.jpg"
+                alt="Team collaboration"
+                width={1200}
+                height={675}
+                className="rounded-2xl object-cover"
+              />
             </div>
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-border bg-white py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 text-sm text-foreground/70 md:flex-row">
-          <p>© {new Date().getFullYear()} MerchMate. All rights reserved.</p>
-          <div className="flex gap-6">
-            <Link href="/products" className="hover:text-foreground">Products</Link>
-            <Link href="/login" className="hover:text-foreground">Login</Link>
-            <Link href="/register" className="hover:text-foreground">Register</Link>
+      <footer className="border-t border-border bg-white px-6 py-8">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-secondary md:flex-row">
+          <div className="font-semibold text-foreground">ProdDash</div>
+          <div className="flex gap-4">
+            <Link href="/products" className="hover:text-primary">
+              Products
+            </Link>
+            <Link href="/dashboard" className="hover:text-primary">
+              Dashboard
+            </Link>
+            <Link href="/login" className="hover:text-primary">
+              Sign In
+            </Link>
           </div>
+          <div>© {new Date().getFullYear()} ProdDash. All rights reserved.</div>
         </div>
       </footer>
-    </div>
+    </main>
   );
 }

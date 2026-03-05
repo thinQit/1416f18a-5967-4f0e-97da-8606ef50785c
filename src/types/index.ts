@@ -1,26 +1,27 @@
-export type Product = {
+export interface Product {
   id: string;
-  name: string;
-  description?: string | null;
+  title: string;
+  description: string;
   price: number;
-  imageUrl?: string | null;
-  sku: string;
-  stock: number;
-  createdBy: string;
-  createdAt?: string;
-  updatedAt?: string;
-};
+  image_url?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
 
-export type PaginatedResponse<T> = {
-  data: T[];
+export interface PaginatedResponse<T> {
+  items: T[];
   page: number;
-  pageSize: number;
+  per_page: number;
   total: number;
-  totalPages: number;
-};
+}
 
-export type ApiResponse<T> = {
-  success: boolean;
-  data: T;
-  message?: string;
-};
+export interface AuthUser {
+  id: string;
+  email: string;
+  name?: string | null;
+}
+
+export interface AuthResponse {
+  user: AuthUser | null;
+  token?: string;
+}

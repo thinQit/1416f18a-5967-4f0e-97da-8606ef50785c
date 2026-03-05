@@ -1,79 +1,81 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/providers/AuthProvider';
-import Input from '@/components/ui/Input';
-import Button from '@/components/ui/Button';
-import Spinner from '@/components/ui/Spinner';
+import { useState } from "react";
+import Link from "next/link";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { useAuth } from "@/providers/AuthProvider";
 
 export default function LoginPage() {
-  const router = useRouter();
   const { login } = useAuth();
-  const [form, setForm] = useState({ email: '', password: '', remember: false });
-  const [error, setError] = useState('');
+  const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setError('');
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
-      await login(form.email, form.password, form.remember);
-      router.push('/products');
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      await login(form.email, form.password);
+      window.location.href = "/dashboard";
+    } catch (err) {
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-muted py-16">
-      <div className="mx-auto max-w-lg rounded-2xl bg-white p-8 shadow">
-        <h1 className="text-2xl font-semibold text-foreground">Welcome back to MerchMate</h1>
-        <p className="mt-2 text-sm text-foreground/70">Sign in to access your product dashboard.</p>
-        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-          <Input
-            label="Email"
-            type="email"
-            name="email"
-            value={form.email}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, email: e.target.value })}
-            required
-          />
-          <Input
-            label="Password"
-            type="password"
-            name="password"
-            value={form.password}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, password: e.target.value })}
-            required
-          />
-          <label className="flex items-center gap-2 text-sm text-foreground/70">
-            <input
-              type="checkbox"
-              checked={form.remember}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, remember: e.target.checked })}
-            />
-            Remember me
-          </label>
-          {error && <p className="text-sm text-error" role="alert">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <Spinner className="h-4 w-4" />
-                Signing in...
+    <main className="bg-muted px-6 py-16">
+      <div className="mx-auto max-w-3xl">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-hover text-white font-bold">
+                PD
               </span>
-            ) : (
-              'Sign in'
-            )}
-          </Button>
-        </form>
-        <p className="mt-4 text-sm text-foreground/70">
-          New to MerchMate? <a href="/register" className="text-primary font-medium">Create an account</a>
-        </p>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">Welcome back to ProdDash</h1>
+                <p className="text-sm text-secondary">Sign in to manage your products.</p>
+              </div>
+            </div>
+          </CardHeader>
+          <form onSubmit={onSubmit}>
+            <CardContent className="grid gap-4">
+              <Input
+                label="Email"
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, email: e.target.value })}
+                required
+              />
+              <Input
+                label="Password"
+                name="password"
+                type="password"
+                value={form.password}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, password: e.target.value })}
+                required
+              />
+              {error && <p className="text-sm text-error">{error}</p>}
+            </CardContent>
+            <CardFooter className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
+              <Button type="submit" disabled={loading}>
+                Sign in
+              </Button>
+              <p className="text-sm text-secondary">
+                New to ProdDash?{" "}
+                <Link href="/register" className="text-primary">
+                  Create account
+                </Link>
+              </p>
+            </CardFooter>
+          </form>
+        </Card>
       </div>
-    </div>
+    </main>
   );
 }

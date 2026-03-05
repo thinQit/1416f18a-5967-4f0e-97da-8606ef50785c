@@ -5,7 +5,7 @@ export async function GET(_request: NextRequest) {
     success: true,
     data: {
       status: 'ok',
-      uptime: process.uptime(),
+      uptime_seconds: process.uptime(),
       timestamp: new Date().toISOString()
     }
   });

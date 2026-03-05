@@ -1,64 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getCurrentUser } from '@/lib/server-auth';
+import db from '@/lib/db';
+import { getAuthContext } from '@/lib/auth-helpers';
 
 const createSchema = z.object({
   token: z.string().min(10),
-  expiresAt: z.string().datetime()
+  expires_at: z.string().datetime()
+});
+
+const querySchema = z.object({
+  page: z.string().optional(),
+  per_page: z.string().optional()
 });
 
 export async function GET(request: NextRequest) {
   try {
-    const current = await getCurrentUser(request);
-    if (!current) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-    if (current.user.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    const auth = await getAuthContext(request);
+    if (!auth || auth.user.role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'forbidden' }, { status: 403 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const pageParam = Number(searchParams.get('page') || 1);
-    const limitParam = Number(searchParams.get('limit') || 10);
-    const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
-    const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 50) : 10;
+    const params = Object.fromEntries(new URL(request.url).searchParams.entries());
+    const parsed = querySchema.parse(params);
+    const page = Math.max(1, parseInt(parsed.page ?? '1', 10) || 1);
+    const perPage = Math.min(50, Math.max(1, parseInt(parsed.per_page ?? '20', 10) || 20));
+
+    const [items, total] = await Promise.all([
+      db.authSession.findMany({
+        skip: (page - 1) * perPage,
+        take: perPage,
+        orderBy: { expires_at: 'desc' }
+      }),
+      db.authSession.count()
+    ]);
+
+    const sessions = items.map((session) => ({
+      token: session.token,
+      expires_at: session.expires_at.toISOString()
+    }));
 
     return NextResponse.json({
       success: true,
-      data: {
-        items: [],
-        meta: { page, limit, total: 0 }
-      }
+      data: { items: sessions, total, page, per_page: perPage }
     });
-  } catch (_error) {
-    return NextResponse.json({ success: false, error: 'Failed to load sessions' }, { status: 500 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'invalid_request';
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const current = await getCurrentUser(request);
-    if (!current) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-    if (current.user.role !== 'admin') {
-      return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 });
+    const auth = await getAuthContext(request);
+    if (!auth || auth.user.role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
-    createSchema.parse(body);
+    const data = createSchema.parse(body);
 
-    return NextResponse.json(
-      { success: false, error: 'Session storage not configured' },
-      { status: 501 }
-    );
+    const session = await db.authSession.create({
+      data: {
+        token: data.token,
+        expires_at: new Date(data.expires_at)
+      }
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: { token: session.token, expires_at: session.expires_at.toISOString() }
+    }, { status: 201 });
   } catch (error: unknown) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { success: false, error: 'Validation error', details: error.flatten() },
-        { status: 400 }
-      );
-    }
-    return NextResponse.json({ success: false, error: 'Unable to create session' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'invalid_request';
+    return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }

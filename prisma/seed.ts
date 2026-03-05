@@ -3,82 +3,71 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-async function main() {
-  const passwordHash = await bcrypt.hash('Password123', 10);
+async function main(): Promise<void> {
+  const adminPassword = await bcrypt.hash('AdminPass123!', 10);
+  const userPassword = await bcrypt.hash('UserPass123!', 10);
 
-  const admin = await prisma.user.findUnique({ where: { email: 'admin@merchmate.com' } });
-  const user = await prisma.user.findUnique({ where: { email: 'user@merchmate.com' } });
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@proddash.dev' },
+    update: {},
+    create: {
+      name: 'Admin User',
+      email: 'admin@proddash.dev',
+      password_hash: adminPassword,
+      role: 'admin'
+    }
+  });
 
-  const adminUser = admin ??
-    (await prisma.user.create({
-      data: {
-        name: 'MerchMate Admin',
-        email: 'admin@merchmate.com',
-        passwordHash,
-        role: 'admin'
-      }
-    }));
+  const user = await prisma.user.upsert({
+    where: { email: 'user@proddash.dev' },
+    update: {},
+    create: {
+      name: 'Sample User',
+      email: 'user@proddash.dev',
+      password_hash: userPassword,
+      role: 'user'
+    }
+  });
 
-  const regularUser = user ??
-    (await prisma.user.create({
-      data: {
-        name: 'Store Manager',
-        email: 'user@merchmate.com',
-        passwordHash,
-        role: 'user'
-      }
-    }));
+  const existingProducts = await prisma.product.count();
+  if (existingProducts > 0) return;
 
   const products = [
     {
-      name: 'Streetwear Hoodie',
-      description: 'Heavyweight fleece hoodie with embroidered logo and ribbed cuffs.',
-      price: 79.99,
-      sku: 'MM-HOOD-001',
-      stock: 42,
-      imageUrl: '/images/feature.jpg',
-      createdBy: adminUser.id
+      title: 'Aurora Smart Lamp',
+      description: 'Voice-enabled desk lamp with adaptive brightness and color temperature controls.',
+      price: 89.99,
+      inventory: 24,
+      image_url: '/images/feature.jpg',
+      owner_id: admin.id
     },
     {
-      name: 'Canvas Tote',
-      description: 'Eco-friendly canvas tote bag with reinforced straps.',
-      price: 24.5,
-      sku: 'MM-TOTE-002',
-      stock: 120,
-      imageUrl: '/images/cta.jpg',
-      createdBy: adminUser.id
+      title: 'Nimbus Travel Backpack',
+      description: 'Weather-resistant backpack with modular compartments and USB charging port.',
+      price: 129.0,
+      inventory: 12,
+      image_url: '/images/hero.jpg',
+      owner_id: user.id
     },
     {
-      name: 'Enamel Mug',
-      description: 'Vintage enamel mug perfect for desk or campfire.',
-      price: 18,
-      sku: 'MM-MUG-003',
-      stock: 75,
-      imageUrl: '/images/hero.jpg',
-      createdBy: regularUser.id
-    },
-    {
-      name: 'Logo Cap',
-      description: 'Adjustable cap with embroidered MerchMate branding.',
-      price: 29.99,
-      sku: 'MM-CAP-004',
-      stock: 55,
-      imageUrl: '/images/feature.jpg',
-      createdBy: regularUser.id
+      title: 'Pulse Fitness Band',
+      description: 'Lightweight fitness tracker with heart-rate monitoring and sleep analytics.',
+      price: 59.5,
+      inventory: 38,
+      image_url: '/images/cta.jpg',
+      owner_id: user.id
     }
   ];
 
   for (const product of products) {
-    const existing = await prisma.product.findUnique({ where: { sku: product.sku } });
-    if (!existing) {
-      await prisma.product.create({ data: product });
-    }
+    await prisma.product.create({ data: product });
   }
 }
 
 main()
-  .catch((error) => {
-    console.error(error);
+  .catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : 'Seed failed';
+    console.error(message);
     process.exit(1);
   })
   .finally(async () => {

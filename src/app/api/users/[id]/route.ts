@@ -1,33 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import db from '@/lib/db';
-import { getTokenFromHeader, hashPassword, verifyToken } from '@/lib/auth';
+import { getAuthContext } from '@/lib/auth-helpers';
+import { hashPassword } from '@/lib/auth';
 
 const updateSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().optional(),
-  password: z.string().min(8).regex(/^(?=.*[A-Za-z])(?=.*\d).+$/, 'Password must include a letter and a number').optional(),
-  role: z.enum(['admin', 'user']).optional()
+  password: z.string().min(8).optional(),
+  role: z.enum(['user', 'admin']).optional()
 });
-
-function getToken(request: NextRequest): string | null {
-  const headerToken = getTokenFromHeader(request.headers.get('authorization'));
-  if (headerToken) return headerToken;
-  const cookieToken = request.cookies.get('access_token')?.value || request.cookies.get('token')?.value;
-  return cookieToken ?? null;
-}
 
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const token = getToken(request);
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const auth = await getAuthContext(request);
+    if (!auth) {
+      return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 });
     }
-    verifyToken(token);
+
+    if (auth.user.role !== 'admin' && auth.user.id !== params.id) {
+      return NextResponse.json({ success: false, error: 'forbidden' }, { status: 403 });
+    }
 
     const user = await db.user.findUnique({ where: { id: params.id } });
     if (!user) {
-      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 });
+      return NextResponse.json({ success: false, error: 'not_found' }, { status: 404 });
     }
 
     return NextResponse.json({
@@ -36,44 +33,50 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role as 'admin' | 'user',
-        createdAt: user.createdAt.toISOString()
+        role: user.role,
+        created_at: user.created_at.toISOString()
       }
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Request failed';
+    const message = error instanceof Error ? error.message : 'invalid_request';
     return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const token = getToken(request);
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const auth = await getAuthContext(request);
+    if (!auth) {
+      return NextResponse.json({ success: false, error: 'unauthorized' }, { status: 401 });
     }
-    verifyToken(token);
 
-    const body = updateSchema.parse(await request.json());
+    if (auth.user.role !== 'admin' && auth.user.id !== params.id) {
+      return NextResponse.json({ success: false, error: 'forbidden' }, { status: 403 });
+    }
 
-    if (body.email) {
-      const existing = await db.user.findUnique({ where: { email: body.email } });
+    const body = await request.json();
+    const data = updateSchema.parse(body);
+
+    if (data.role && auth.user.role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'forbidden' }, { status: 403 });
+    }
+
+    if (data.email) {
+      const existing = await db.user.findUnique({ where: { email: data.email } });
       if (existing && existing.id !== params.id) {
-        return NextResponse.json({ success: false, error: 'Email already in use' }, { status: 400 });
+        return NextResponse.json({ success: false, error: 'email_taken' }, { status: 409 });
       }
     }
 
-    const data: { name?: string; email?: string; role?: string; passwordHash?: string } = {
-      name: body.name,
-      email: body.email,
-      role: body.role
-    };
-
-    if (body.password) {
-      data.passwordHash = await hashPassword(body.password);
+    const updateData: { name?: string; email?: string; password_hash?: string; role?: string } = {};
+    if (data.name) updateData.name = data.name;
+    if (data.email) updateData.email = data.email;
+    if (data.role) updateData.role = data.role;
+    if (data.password) {
+      updateData.password_hash = await hashPassword(data.password);
     }
 
-    const user = await db.user.update({ where: { id: params.id }, data });
+    const user = await db.user.update({ where: { id: params.id }, data: updateData });
 
     return NextResponse.json({
       success: true,
@@ -81,28 +84,32 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role as 'admin' | 'user',
-        createdAt: user.createdAt.toISOString()
+        role: user.role,
+        created_at: user.created_at.toISOString()
       }
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Invalid request';
+    const message = error instanceof Error ? error.message : 'invalid_request';
     return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const token = getToken(request);
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const auth = await getAuthContext(request);
+    if (!auth || auth.user.role !== 'admin') {
+      return NextResponse.json({ success: false, error: 'forbidden' }, { status: 403 });
     }
-    verifyToken(token);
+
+    const user = await db.user.findUnique({ where: { id: params.id } });
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'not_found' }, { status: 404 });
+    }
 
     await db.user.delete({ where: { id: params.id } });
     return NextResponse.json({ success: true, data: { success: true } });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Unable to delete user';
+    const message = error instanceof Error ? error.message : 'invalid_request';
     return NextResponse.json({ success: false, error: message }, { status: 400 });
   }
 }
