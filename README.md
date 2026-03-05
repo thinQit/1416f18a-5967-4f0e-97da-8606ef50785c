@@ -1,36 +1,45 @@
-# ProdDash
+# ShopFlow
 
-ProdDash is a lightweight product management dashboard with authentication, product CRUD, and public product listings.
+ShopFlow is a lightweight product catalog and admin dashboard with JWT authentication, product CRUD, pagination, and image upload support.
 
 ## Features
-- User registration and login (JWT)
+- User registration and login with bcrypt-hashed passwords and JWT sessions
+- Role-based access control for admin-only product management
 - Product listing with search and pagination
-- Product details, create, update, delete
-- Image upload endpoint (stubbed for CDN integration)
+- Product detail pages and admin dashboard overview
+- REST API with Prisma + SQLite
 
 ## Setup
-1. Copy `.env.example` to `.env` and update values.
-2. Install dependencies: `npm install`
-3. Generate Prisma client: `npm run prisma:generate`
-4. Push schema: `npm run prisma:push`
-5. Run dev server: `npm run dev`
+1. Copy environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Generate Prisma client:
+   ```bash
+   npx prisma generate
+   ```
+4. Run the development server:
+   ```bash
+   npm run dev
+   ```
 
 ## API Endpoints
 - `GET /api/health`
 - `POST /api/auth/register`
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
-- `GET /api/auth/me`
+- `GET /api/me`
 - `GET /api/products`
+- `POST /api/products` (admin)
 - `GET /api/products/:id`
-- `POST /api/products`
-- `PUT /api/products/:id`
-- `DELETE /api/products/:id`
-- `POST /api/products/:id/image`
+- `PUT /api/products/:id` (admin)
+- `DELETE /api/products/:id` (admin)
+- `POST /api/upload` (authenticated)
 
-## Scripts
-- `npm run dev`
-- `npm run build`
-- `npm run lint`
-- `npm run prisma:push`
-- `npm run seed`
+## Notes
+- Set `JWT_SECRET` in production.
+- Role-based access returns `403` for non-admin users on admin endpoints.

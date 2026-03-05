@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import db from '@/lib/db';
-import { hashPassword } from '@/lib/auth';
+import { hashPassword, signToken } from '@/lib/auth';
 
 const schema = z.object({
-  name: z.string().min(2),
-  email: z.string().email(),
-  password: z.string().min(8)
+  name: z.string().min(2, 'Name is required'),
+  email: z.string().email('Valid email is required'),
+  password: z.string().min(6, 'Password must be at least 6 characters')
 });
 
 export async function POST(request: NextRequest) {
@@ -16,34 +16,34 @@ export async function POST(request: NextRequest) {
 
     const existing = await db.user.findUnique({ where: { email: data.email } });
     if (existing) {
-      return NextResponse.json({ success: false, error: 'email_taken' }, { status: 409 });
+      return NextResponse.json({ success: false, error: 'Email already registered' }, { status: 409 });
     }
 
-    const password_hash = await hashPassword(data.password);
+    const passwordHash = await hashPassword(data.password);
     const user = await db.user.create({
       data: {
         name: data.name,
         email: data.email,
-        password_hash,
-        role: 'user'
+        passwordHash
       }
     });
+
+    const token = signToken({ id: user.id, email: user.email, role: user.role });
 
     return NextResponse.json(
       {
         success: true,
         data: {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          created_at: user.created_at.toISOString()
+          token,
+          user: { id: user.id, name: user.name, email: user.email, role: user.role }
         }
       },
       { status: 201 }
     );
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'invalid_request';
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ success: false, error: error.errors[0]?.message || 'Invalid input' }, { status: 400 });
+    }
+    return NextResponse.json({ success: false, error: 'Registration failed' }, { status: 500 });
   }
 }

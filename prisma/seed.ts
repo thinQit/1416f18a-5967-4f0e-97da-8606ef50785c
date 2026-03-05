@@ -3,71 +3,71 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-async function main(): Promise<void> {
-  const adminPassword = await bcrypt.hash('AdminPass123!', 10);
-  const userPassword = await bcrypt.hash('UserPass123!', 10);
+async function main() {
+  const adminPassword = await bcrypt.hash('Admin123!', 10);
+  const userPassword = await bcrypt.hash('User123!', 10);
 
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@proddash.dev' },
-    update: {},
-    create: {
-      name: 'Admin User',
-      email: 'admin@proddash.dev',
-      password_hash: adminPassword,
+  const admin = await prisma.user.create({
+    data: {
+      name: 'Alex Admin',
+      email: 'admin@shopflow.io',
+      passwordHash: adminPassword,
       role: 'admin'
     }
   });
 
-  const user = await prisma.user.upsert({
-    where: { email: 'user@proddash.dev' },
-    update: {},
-    create: {
-      name: 'Sample User',
-      email: 'user@proddash.dev',
-      password_hash: userPassword,
+  await prisma.user.create({
+    data: {
+      name: 'Jamie Shopper',
+      email: 'user@shopflow.io',
+      passwordHash: userPassword,
       role: 'user'
     }
   });
 
-  const existingProducts = await prisma.product.count();
-  if (existingProducts > 0) return;
-
   const products = [
     {
-      title: 'Aurora Smart Lamp',
-      description: 'Voice-enabled desk lamp with adaptive brightness and color temperature controls.',
+      name: 'Aurora Desk Lamp',
+      description: 'Minimalist desk lamp with adjustable brightness and warm ambient glow.',
       price: 89.99,
-      inventory: 24,
-      image_url: '/images/feature.jpg',
-      owner_id: admin.id
+      stock: 32,
+      imageUrl: '/images/feature.jpg'
     },
     {
-      title: 'Nimbus Travel Backpack',
-      description: 'Weather-resistant backpack with modular compartments and USB charging port.',
+      name: 'Nimbus Travel Backpack',
+      description: 'Lightweight travel backpack with laptop sleeve and waterproof shell.',
       price: 129.0,
-      inventory: 12,
-      image_url: '/images/hero.jpg',
-      owner_id: user.id
+      stock: 18,
+      imageUrl: '/images/hero.jpg'
     },
     {
-      title: 'Pulse Fitness Band',
-      description: 'Lightweight fitness tracker with heart-rate monitoring and sleep analytics.',
-      price: 59.5,
-      inventory: 38,
-      image_url: '/images/cta.jpg',
-      owner_id: user.id
+      name: 'Crestline Coffee Set',
+      description: 'Handcrafted ceramic coffee set with four mugs and a pour-over dripper.',
+      price: 64.5,
+      stock: 45,
+      imageUrl: '/images/cta.jpg'
     }
   ];
 
   for (const product of products) {
-    await prisma.product.create({ data: product });
+    await prisma.product.create({
+      data: {
+        ...product,
+        createdBy: admin.id
+      }
+    });
   }
+
+  await prisma.upload.create({
+    data: {
+      url: '/uploads/sample-image.jpg'
+    }
+  });
 }
 
 main()
-  .catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : 'Seed failed';
-    console.error(message);
+  .catch((error) => {
+    console.error(error);
     process.exit(1);
   })
   .finally(async () => {

@@ -1,11 +1,10 @@
-import type { Metadata } from "next";
-import { AuthProvider } from "@/providers/AuthProvider";
-import './globals.css';
+import type { Metadata } from 'next';
+import { AuthProvider } from '@/providers/AuthProvider';
 import Navigation from '@/components/layout/Navigation';
 
 export const metadata: Metadata = {
-  title: "ProdDash",
-  description: "Product dashboard"
+  title: 'App',
+  description: 'Next.js 14 app'
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

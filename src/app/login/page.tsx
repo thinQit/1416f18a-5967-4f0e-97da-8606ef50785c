@@ -1,79 +1,72 @@
 'use client';
 
-import { useState } from "react";
-import Link from "next/link";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/Card";
-import { Input } from "@/components/ui/Input";
-import { Button } from "@/components/ui/Button";
-import { useAuth } from "@/providers/AuthProvider";
+import type React from 'react';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
+import { useAuth } from '@/providers/AuthProvider';
 
 export default function LoginPage() {
+  const router = useRouter();
   const { login } = useAuth();
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError('');
     setLoading(true);
-    setError(null);
     try {
       await login(form.email, form.password);
-      window.location.href = "/dashboard";
-    } catch (err) {
-      setError((err as Error).message);
+      router.push('/products');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Unable to login');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="bg-muted px-6 py-16">
-      <div className="mx-auto max-w-3xl">
-        <Card>
+    <main className="min-h-screen bg-muted">
+      <div className="mx-auto max-w-4xl px-4 py-16">
+        <Card className="mx-auto max-w-xl">
           <CardHeader>
-            <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-hover text-white font-bold">
-                PD
-              </span>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">Welcome back to ProdDash</h1>
-                <p className="text-sm text-secondary">Sign in to manage your products.</p>
-              </div>
-            </div>
+            <h1 className="text-2xl font-bold text-foreground">Welcome back to ShopFlow</h1>
+            <p className="text-sm text-secondary">Sign in to manage products and view dashboard insights.</p>
           </CardHeader>
-          <form onSubmit={onSubmit}>
-            <CardContent className="grid gap-4">
+          <CardContent>
+            <form className="space-y-4" onSubmit={handleSubmit}>
               <Input
-                label="Email"
+                label="Email address"
                 name="email"
                 type="email"
+                placeholder="you@shopflow.io"
                 value={form.email}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, email: e.target.value })}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, email: event.target.value })
+                }
                 required
               />
               <Input
                 label="Password"
                 name="password"
                 type="password"
+                placeholder="Enter your password"
                 value={form.password}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, password: e.target.value })}
+                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
+                  setForm({ ...form, password: event.target.value })
+                }
                 required
               />
               {error && <p className="text-sm text-error">{error}</p>}
-            </CardContent>
-            <CardFooter className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
-              <Button type="submit" disabled={loading}>
-                Sign in
+              <Button type="submit" disabled={loading} className="w-full">
+                {loading ? 'Signing in...' : 'Sign In'}
               </Button>
-              <p className="text-sm text-secondary">
-                New to ProdDash?{" "}
-                <Link href="/register" className="text-primary">
-                  Create account
-                </Link>
-              </p>
-            </CardFooter>
-          </form>
+            </form>
+          </CardContent>
         </Card>
       </div>
     </main>

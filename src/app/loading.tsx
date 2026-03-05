@@ -1,9 +1,11 @@
-import Spinner from "@/components/ui/Spinner";
+import { Spinner } from '@/components/ui/Spinner';
 
-export default function Loading() {
+export default function LoadingPage() {
   return (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <Spinner />
-    </div>
+    <main className="min-h-screen bg-muted">
+      <div className="flex justify-center py-20">
+        <Spinner className="h-10 w-10" />
+      </div>
+    </main>
   );
 }

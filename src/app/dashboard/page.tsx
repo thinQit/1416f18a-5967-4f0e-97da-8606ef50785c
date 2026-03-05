@@ -1,28 +1,46 @@
 'use client';
 
-import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
-import type { PaginatedResponse, Product } from "@/types";
-import { Card, CardContent } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
-import Spinner from "@/components/ui/Spinner";
-import Link from "next/link";
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/providers/AuthProvider';
+import { api } from '@/lib/api';
+import type { PaginatedResponse, Product } from '@/types';
+import { Card, CardContent, CardHeader } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { Spinner } from '@/components/ui/Spinner';
 
 export default function DashboardPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const { user } = useAuth();
+  const router = useRouter();
+  const [data, setData] = useState<PaginatedResponse<Product> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const token = window.localStorage.getItem('shopflow_token');
+    if (!token) {
+      router.push('/login');
+    }
+  }, [router]);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      setError(null);
+      setError('');
       try {
-        const res = await api.get<PaginatedResponse<Product>>("/api/products?page=1&per_page=5");
-        setProducts(res?.items ?? []);
-      } catch (err) {
-        setError((err as Error).message);
-        setProducts([]);
+        const response = await api.get<PaginatedResponse<Product>>('/api/products?page=1&pageSize=5');
+        if (!response) {
+          setError('Unable to load dashboard data.');
+          setData(null);
+        } else if (!response.ok) {
+          setError(response.error || 'Unable to load dashboard data.');
+          setData(null);
+        } else {
+          setData(response.data);
+        }
+      } catch (_error) {
+        setError('Unable to load dashboard data.');
+        setData(null);
       } finally {
         setLoading(false);
       }
@@ -30,67 +48,56 @@ export default function DashboardPage() {
     load();
   }, []);
 
-  const lowStock = products.filter((product) => product.inventory < 5).length;
-
   return (
-    <main className="bg-muted px-6 py-16">
-      <div className="mx-auto max-w-6xl space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-secondary">Quick overview of your product catalog.</p>
+    <main className="min-h-screen bg-muted">
+      <div className="mx-auto max-w-6xl px-4 py-12">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
+          <p className="text-sm text-secondary">
+            Overview for {user?.name || 'Admin'} — role: {user?.role || 'user'}.
+          </p>
         </div>
-
-        {loading && <Spinner />}
-        {error && <p className="text-error">{error}</p>}
-
-        {!loading && (
-          <>
-            <div className="grid gap-6 md:grid-cols-3">
-              <Card>
-                <CardContent>
-                  <p className="text-sm text-secondary">Total products</p>
-                  <p className="text-2xl font-bold text-foreground">{products.length}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent>
-                  <p className="text-sm text-secondary">Low inventory</p>
-                  <p className="text-2xl font-bold text-foreground">{lowStock}</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent>
-                  <p className="text-sm text-secondary">Featured</p>
-                  <p className="text-2xl font-bold text-foreground">{products[0]?.title || "—"}</p>
-                </CardContent>
-              </Card>
-            </div>
-
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <Spinner className="h-10 w-10" />
+          </div>
+        ) : error ? (
+          <div className="rounded-lg border border-dashed border-border bg-white p-10 text-center text-sm text-error">
+            {error}
+          </div>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2">
             <Card>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-foreground">Recent products</h2>
-                  <Link href="/products/new" className="text-sm text-primary">
-                    Add product
-                  </Link>
-                </div>
-                <div className="space-y-3">
-                  {products.length === 0 && <p className="text-secondary">No products yet.</p>}
-                  {products.map((product) => (
-                    <div key={product.id} className="flex items-center justify-between rounded-md border border-border bg-white p-3">
+              <CardHeader>
+                <h2 className="text-lg font-semibold text-foreground">Latest products</h2>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {data?.items.length ? (
+                  data.items.map((product) => (
+                    <div key={product.id} className="flex items-center justify-between rounded-lg bg-white p-3">
                       <div>
-                        <p className="font-semibold text-foreground">{product.title}</p>
-                        <p className="text-sm text-secondary">${product.price.toFixed(2)}</p>
+                        <p className="text-sm font-semibold text-foreground">{product.name}</p>
+                        <p className="text-xs text-secondary">${product.price.toFixed(2)}</p>
                       </div>
-                      <Badge variant={product.inventory < 5 ? "warning" : "success"}>
-                        {product.inventory < 5 ? "Low stock" : "In stock"}
-                      </Badge>
+                      <Badge variant={product.stock > 0 ? 'success' : 'error'}>{product.stock} stock</Badge>
                     </div>
-                  ))}
-                </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-secondary">No products available yet.</p>
+                )}
               </CardContent>
             </Card>
-          </>
+            <Card>
+              <CardHeader>
+                <h2 className="text-lg font-semibold text-foreground">Account summary</h2>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm text-secondary">
+                <p>Email: {user?.email || 'N/A'}</p>
+                <p>Role: {user?.role || 'N/A'}</p>
+                <p>Access: {user?.role === 'admin' ? 'Full catalog control' : 'Read-only'}</p>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </main>

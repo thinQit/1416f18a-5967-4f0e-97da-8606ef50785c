@@ -1,12 +1,12 @@
 import type { InputHTMLAttributes } from 'react';
 
-export function Input({ className = '', ...props }: InputHTMLAttributes<HTMLInputElement>) {
+export type InputProps = InputHTMLAttributes<HTMLInputElement>;
+
+export const Input = ({ className = '', ...props }: InputProps) => {
   return (
     <input
-      className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ${className}`}
+      className={`w-full rounded border px-3 py-2 text-sm ${className}`.trim()}
       {...props}
     />
   );
-}
-
-export default Input;
+};

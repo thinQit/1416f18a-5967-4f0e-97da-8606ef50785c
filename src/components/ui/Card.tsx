@@ -1,19 +1,37 @@
-import type { HTMLAttributes, PropsWithChildren } from 'react';
+import type { ReactNode, HTMLAttributes } from 'react';
 
-export function Card({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={`rounded-lg border bg-card text-card-foreground ${className}`} {...props} />;
-}
+export type CardProps = HTMLAttributes<HTMLDivElement> & {
+  children?: ReactNode;
+};
 
-export function CardHeader({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={`flex flex-col space-y-1.5 p-6 ${className}`} {...props} />;
-}
+export const Card = ({ children, className = '', ...props }: CardProps) => {
+  return (
+    <div className={`rounded border bg-white p-4 ${className}`.trim()} {...props}>
+      {children}
+    </div>
+  );
+};
 
-export function CardContent({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={`p-6 pt-0 ${className}`} {...props} />;
-}
+export type CardHeaderProps = HTMLAttributes<HTMLDivElement> & {
+  children?: ReactNode;
+};
 
-export function CardFooter({ className = '', ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={`flex items-center p-6 pt-0 ${className}`} {...props} />;
-}
+export const CardHeader = ({ children, className = '', ...props }: CardHeaderProps) => {
+  return (
+    <div className={`mb-2 font-semibold ${className}`.trim()} {...props}>
+      {children}
+    </div>
+  );
+};
 
-export default Card;
+export type CardContentProps = HTMLAttributes<HTMLDivElement> & {
+  children?: ReactNode;
+};
+
+export const CardContent = ({ children, className = '', ...props }: CardContentProps) => {
+  return (
+    <div className={`text-sm text-gray-700 ${className}`.trim()} {...props}>
+      {children}
+    </div>
+  );
+};
