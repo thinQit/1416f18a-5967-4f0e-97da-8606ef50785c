@@ -1,13 +1,9 @@
-import type { Metadata } from 'next';
+import './globals.css';
+import type { ReactNode } from 'react';
 import { AuthProvider } from '@/providers/AuthProvider';
 import Navigation from '@/components/layout/Navigation';
 
-export const metadata: Metadata = {
-  title: 'App',
-  description: 'Next.js 14 app'
-};
-
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>

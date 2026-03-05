@@ -1,154 +1,140 @@
-import Link from 'next/link';
-import { Card, CardContent } from '@/components/ui/Card';
-
-const primaryButtonClasses =
-  'inline-flex items-center justify-center rounded-md bg-primary px-5 py-3 text-sm font-semibold text-white transition hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
-const outlineButtonClasses =
-  'inline-flex items-center justify-center rounded-md border border-border px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
+import Image from 'next/image';
 
 export default function HomePage() {
   return (
-    <main className="bg-white">
+    <main className="bg-muted">
       <section className="relative overflow-hidden bg-white">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 md:grid-cols-2 md:items-center">
+        <div className="container grid gap-12 py-16 lg:grid-cols-2 lg:items-center">
           <div className="space-y-6">
-            <p className="text-sm font-semibold uppercase tracking-widest text-primary">ShopFlow Commerce Suite</p>
-            <h1 className="text-4xl font-bold text-foreground md:text-5xl">
-              Manage products faster with a clean, secure catalog built for modern teams.
+            <p className="inline-flex items-center rounded-full bg-primary/10 px-4 py-1 text-sm font-semibold text-primary">
+              Prodly Product Dashboard
+            </p>
+            <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+              Build and manage your product catalog with secure, fast workflows.
             </h1>
             <p className="text-lg text-secondary">
-              ShopFlow delivers a lightweight product catalog and admin dashboard with JWT authentication, role-based access,
-              and image-ready listings. Launch your catalog in minutes and scale with pagination and search.
+              Prodly brings together registration, authentication, and a modern product catalog so teams can create, edit, and publish items with confidence. Keep your inventory organized, searchable, and always accessible.
             </p>
-            <div className="flex flex-wrap gap-4">
-              <Link href="/products" className={primaryButtonClasses}>
-                Browse Products
-              </Link>
-              <Link href="/register" className={outlineButtonClasses}>
-                Create an Account
-              </Link>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <a
+                href="/register"
+                className="inline-flex items-center justify-center rounded-lg bg-primary px-6 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-primary-hover"
+              >
+                Get started free
+              </a>
+              <a
+                href="/products"
+                className="inline-flex items-center justify-center rounded-lg border border-border bg-white px-6 py-3 text-base font-semibold text-foreground transition hover:border-primary"
+              >
+                Browse catalog
+              </a>
             </div>
-            <div className="flex items-center gap-6 text-sm text-secondary">
+            <div className="grid gap-6 sm:grid-cols-3">
               <div>
-                <span className="block text-2xl font-bold text-foreground">99.9%</span>
-                Reliable uptime
+                <p className="text-2xl font-bold text-foreground">99.9%</p>
+                <p className="text-sm text-secondary">API uptime with built-in health checks</p>
               </div>
               <div>
-                <span className="block text-2xl font-bold text-foreground">1k+</span>
-                Products indexed
+                <p className="text-2xl font-bold text-foreground">15m</p>
+                <p className="text-sm text-secondary">JWT access tokens for secure sessions</p>
               </div>
               <div>
-                <span className="block text-2xl font-bold text-foreground">JWT</span>
-                Secure sessions
+                <p className="text-2xl font-bold text-foreground">1-click</p>
+                <p className="text-sm text-secondary">Create, edit, and publish products</p>
               </div>
             </div>
           </div>
-          <div className="relative">
-            <div className="overflow-hidden rounded-2xl border border-border bg-muted shadow-lg">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/hero.jpg"
-                alt="ShopFlow dashboard preview"
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <div className="absolute -bottom-6 -left-6 hidden rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-white shadow-lg md:block">
-              Admin insights in real-time
-            </div>
+          <div className="rounded-2xl border border-border bg-white p-4 shadow-lg">
+            <Image
+              src="/images/hero.jpg"
+              alt="Prodly dashboard preview"
+              width={1200}
+              height={675}
+              className="h-auto w-full rounded-xl object-cover"
+              priority
+            />
           </div>
         </div>
       </section>
 
-      <section className="bg-muted">
-        <div className="mx-auto max-w-6xl px-4 py-16">
-          <div className="mb-10 text-center">
-            <h2 className="text-3xl font-bold text-foreground">Everything your catalog needs</h2>
-            <p className="mt-3 text-secondary">
-              Designed around the ShopFlow wireframes — modern UI, accessible components, and REST-ready endpoints.
-            </p>
+      <section className="bg-muted py-16">
+        <div className="container space-y-10">
+          <div className="text-center">
+            <h2 className="text-3xl font-bold text-foreground">Everything teams need to launch products faster</h2>
+            <p className="mt-3 text-base text-secondary">Purpose-built features for catalog teams, merchandisers, and operations managers.</p>
           </div>
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {[
-              {
-                title: 'Role-based admin control',
-                description: 'Admins create, edit, and delete products with secure JWT-protected endpoints and 403 safeguards.'
-              },
-              {
-                title: 'Search & pagination',
-                description: 'Fast catalog browsing with case-insensitive search and page-based performance tuning.'
-              },
-              {
-                title: 'Image-ready listings',
-                description: 'Upload-ready product cards support optional images and clean, accessible layouts.'
-              }
+              { title: 'Secure auth', text: 'JWT sessions, hashed passwords, and role-based access for protected updates.' },
+              { title: 'Product creation', text: 'Capture names, descriptions, SKUs, pricing, and rich media in one flow.' },
+              { title: 'Smart search', text: 'Search and sort by name or price with paginated API responses.' },
+              { title: 'Operational insights', text: 'Track inventory quantity and update products with full audit-ready logs.' }
             ].map((feature) => (
-              <Card key={feature.title}>
-                <CardContent className="space-y-3">
-                  <h3 className="text-lg font-semibold text-foreground">{feature.title}</h3>
-                  <p className="text-sm text-secondary">{feature.description}</p>
-                </CardContent>
-              </Card>
+              <div key={feature.title} className="rounded-xl border border-border bg-white p-6 shadow-sm">
+                <h3 className="text-lg font-semibold text-foreground">{feature.title}</h3>
+                <p className="mt-2 text-sm text-secondary">{feature.text}</p>
+              </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-16">
-          <div className="grid gap-10 md:grid-cols-2">
-            <div className="space-y-5">
-              <h2 className="text-3xl font-bold text-foreground">Built for operational clarity</h2>
-              <p className="text-secondary">
-                ShopFlow offers clean product detail pages, admin dashboards, and secure profile access so teams can ship updates
-                confidently.
-              </p>
-              <ul className="space-y-3 text-sm text-secondary">
-                <li>• Secure password hashing with bcryptjs and short-lived JWTs.</li>
-                <li>• Product audit trails with timestamps and creator IDs.</li>
-                <li>• Easy-to-extend upload pipeline for S3-compatible storage.</li>
-              </ul>
-              <Link href="/dashboard" className={primaryButtonClasses}>
-                View Admin Dashboard
-              </Link>
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/images/feature.jpg"
-                alt="ShopFlow catalog management"
-                className="h-full w-full object-cover"
-              />
-            </div>
+      <section className="bg-white py-16">
+        <div className="container grid gap-10 lg:grid-cols-2 lg:items-center">
+          <div className="rounded-2xl border border-border bg-muted p-4 shadow">
+            <Image
+              src="/images/feature.jpg"
+              alt="Prodly feature preview"
+              width={1200}
+              height={675}
+              className="h-auto w-full rounded-xl object-cover"
+            />
+          </div>
+          <div className="space-y-5">
+            <h2 className="text-3xl font-bold text-foreground">Designed for modern teams, ready for scale</h2>
+            <p className="text-base text-secondary">
+              Prodly pairs a Next.js 14 interface with a Prisma-backed API for speed and reliability. Start on SQLite locally and upgrade to Postgres when you are ready to scale.
+            </p>
+            <ul className="space-y-3 text-sm text-secondary">
+              <li>• Health endpoint and structured logging for observability.</li>
+              <li>• Accessible form layouts with clear focus states.</li>
+              <li>• Ready for image uploads and CDN-backed delivery.</li>
+            </ul>
           </div>
         </div>
       </section>
 
-      <section className="bg-white">
-        <div className="mx-auto max-w-6xl px-4 pb-16">
-          <div className="relative overflow-hidden rounded-2xl border border-border">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/images/cta.jpg" alt="ShopFlow call to action" className="h-full w-full object-cover" />
-            <div className="absolute inset-0 bg-secondary/70" />
-            <div className="relative flex flex-col items-start gap-6 px-8 py-12 text-white md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 className="text-2xl font-bold">Ready to launch ShopFlow?</h3>
-                <p className="text-white/80">Create your admin account and start curating your catalog today.</p>
-              </div>
-              <Link href="/register" className={primaryButtonClasses}>
-                Get Started
-              </Link>
-            </div>
+      <section className="bg-primary py-14 text-white">
+        <div className="container grid gap-6 lg:grid-cols-[2fr,1fr] lg:items-center">
+          <div>
+            <h2 className="text-3xl font-bold">Ready to launch your catalog?</h2>
+            <p className="mt-2 text-sm text-white/80">Create your Prodly workspace and ship products in minutes.</p>
+          </div>
+          <div className="rounded-2xl bg-white/10 p-4">
+            <Image
+              src="/images/cta.jpg"
+              alt="Product launch preview"
+              width={1200}
+              height={675}
+              className="h-auto w-full rounded-xl object-cover"
+            />
+            <a
+              href="/register"
+              className="mt-4 inline-flex w-full items-center justify-center rounded-lg bg-white px-6 py-3 text-base font-semibold text-primary shadow-sm transition hover:bg-white/90"
+            >
+              Create your account
+            </a>
           </div>
         </div>
       </section>
 
-      <footer className="bg-white">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 md:flex-row">
-          <p className="text-sm text-secondary">© 2024 ShopFlow. All rights reserved.</p>
-          <div className="flex gap-4 text-sm text-secondary">
-            <Link href="/products">Catalog</Link>
-            <Link href="/login">Sign In</Link>
-            <Link href="/register">Create Account</Link>
+      <footer className="bg-white py-8">
+        <div className="container flex flex-col items-center justify-between gap-4 text-sm text-secondary md:flex-row">
+          <p>© {new Date().getFullYear()} Prodly. All rights reserved.</p>
+          <div className="flex gap-6">
+            <a href="/products" className="hover:text-primary">Products</a>
+            <a href="/login" className="hover:text-primary">Login</a>
+            <a href="/register" className="hover:text-primary">Register</a>
           </div>
         </div>
       </footer>

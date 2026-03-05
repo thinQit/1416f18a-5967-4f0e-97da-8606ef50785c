@@ -1,24 +1,35 @@
-export const runtime = 'nodejs';
-
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { getTokenFromHeader, verifyToken } from '@/lib/auth';
 
-export function middleware(request: NextRequest) {
-  const protectedPaths = ['/dashboard', '/products/new'];
+export const runtime = 'nodejs';
+
+function requiresAuth(request: NextRequest): boolean {
   const { pathname } = request.nextUrl;
 
-  if (protectedPaths.some((path) => pathname.startsWith(path))) {
-    const token = request.cookies.get('shopflow_token');
-    if (!token) {
-      const url = request.nextUrl.clone();
-      url.pathname = '/login';
-      return NextResponse.redirect(url);
-    }
+  if (pathname === '/api/health') return false;
+  if (pathname.startsWith('/api/auth')) return false;
+  if (pathname.startsWith('/api/products') && request.method === 'GET') return false;
+
+  return pathname.startsWith('/api/products') || pathname.startsWith('/api/users') || pathname.startsWith('/api/auth-tokens');
+}
+
+export function middleware(request: NextRequest) {
+  if (!requiresAuth(request)) return NextResponse.next();
+
+  const token = getTokenFromHeader(request.headers.get('authorization'));
+  if (!token) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  return NextResponse.next();
+  try {
+    verifyToken(token);
+    return NextResponse.next();
+  } catch (_error) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
 }
 
 export const config = {
-  matcher: ['/dashboard', '/products/new']
+  matcher: ['/api/:path*']
 };

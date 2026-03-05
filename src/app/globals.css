@@ -1,14 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 :root {
   --primary: #4f46e5;
   --primary-hover: #38bdf8;
-  --secondary: #1f2937;
+  --secondary: #64748b;
   --background: #10b981;
   --foreground: #0f172a;
   --muted: #f1f5f9;
-  --border: #e5e7eb;
+  --border: #e2e8f0;
   --error: #ef4444;
   --success: #22c55e;
   --radius: 0.5rem;
@@ -20,4 +21,8 @@ html, body {
 
 body {
   @apply bg-background text-foreground antialiased;
+}
+
+.container {
+  @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
 }

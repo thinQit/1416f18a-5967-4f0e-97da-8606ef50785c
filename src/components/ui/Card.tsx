@@ -1,37 +1,17 @@
-import type { ReactNode, HTMLAttributes } from 'react';
+import type { ReactNode } from 'react';
 
-export type CardProps = HTMLAttributes<HTMLDivElement> & {
+type CardProps = {
   children?: ReactNode;
+  className?: string;
 };
 
-export const Card = ({ children, className = '', ...props }: CardProps) => {
-  return (
-    <div className={`rounded border bg-white p-4 ${className}`.trim()} {...props}>
-      {children}
-    </div>
-  );
-};
+function Card({ children, className }: CardProps) {
+  return <div className={`p-4 ${className ?? ''}`.trim()}>{children}</div>;
+}
 
-export type CardHeaderProps = HTMLAttributes<HTMLDivElement> & {
-  children?: ReactNode;
-};
+export function CardContent({ children, className }: CardProps) {
+  return <div className={`p-4 ${className ?? ''}`.trim()}>{children}</div>;
+}
 
-export const CardHeader = ({ children, className = '', ...props }: CardHeaderProps) => {
-  return (
-    <div className={`mb-2 font-semibold ${className}`.trim()} {...props}>
-      {children}
-    </div>
-  );
-};
-
-export type CardContentProps = HTMLAttributes<HTMLDivElement> & {
-  children?: ReactNode;
-};
-
-export const CardContent = ({ children, className = '', ...props }: CardContentProps) => {
-  return (
-    <div className={`text-sm text-gray-700 ${className}`.trim()} {...props}>
-      {children}
-    </div>
-  );
-};
+export { Card };
+export default Card;

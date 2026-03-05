@@ -1,10 +1,8 @@
-import { Spinner } from '@/components/ui/Spinner';
-
-export default function LoadingPage() {
+export default function Loading() {
   return (
-    <main className="min-h-screen bg-muted">
-      <div className="flex justify-center py-20">
-        <Spinner className="h-10 w-10" />
+    <main className="container py-20">
+      <div className="rounded-xl border border-border bg-white p-8 shadow-sm">
+        <p className="text-sm text-secondary">Loading Prodly...</p>
       </div>
     </main>
   );

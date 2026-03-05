@@ -1,15 +1,12 @@
-import Link from 'next/link';
-import { Button } from '@/components/ui/Button';
-
-export default function NotFoundPage() {
+export default function NotFound() {
   return (
-    <main className="min-h-screen bg-muted">
-      <div className="mx-auto flex max-w-xl flex-col items-center gap-4 px-4 py-20 text-center">
-        <h1 className="text-3xl font-bold text-foreground">Page not found</h1>
-        <p className="text-sm text-secondary">The page you are looking for doesn’t exist or has moved.</p>
-        <Button asChild>
-          <Link href="/">Go back home</Link>
-        </Button>
+    <main className="container py-20">
+      <div className="rounded-xl border border-border bg-white p-8 shadow-sm">
+        <h1 className="text-2xl font-bold text-foreground">Page not found</h1>
+        <p className="mt-2 text-sm text-secondary">The page you are looking for does not exist.</p>
+        <a href="/" className="mt-6 inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover">
+          Back to home
+        </a>
       </div>
     </main>
   );

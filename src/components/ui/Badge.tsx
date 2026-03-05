@@ -1,16 +1,6 @@
-import type { HTMLAttributes, ReactNode } from 'react';
+function Badge(props: Record<string, unknown>) {
+  return <div className="p-4">{/* Badge */}</div>;
+}
 
-export type BadgeProps = HTMLAttributes<HTMLSpanElement> & {
-  children?: ReactNode;
-};
-
-export const Badge = ({ children, className = '', ...props }: BadgeProps) => {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800 ${className}`.trim()}
-      {...props}
-    >
-      {children}
-    </span>
-  );
-};
+export { Badge };
+export default Badge;

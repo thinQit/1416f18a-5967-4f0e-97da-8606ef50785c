@@ -1,134 +1,137 @@
 'use client';
 
-import type React from 'react';
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '@/lib/api';
-import type { PaginatedResponse, Product } from '@/types';
-import { Card, CardContent } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Spinner } from '@/components/ui/Spinner';
+import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Spinner } from '@/components/ui/Spinner';
+import { useAuth } from '@/providers/AuthProvider';
+import type { Product, PaginatedResponse } from '@/types';
 
-const outlineButtonClasses =
-  'inline-flex w-full items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-semibold text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
-
-export default function ProductListingPage() {
-  const [data, setData] = useState<PaginatedResponse<Product> | null>(null);
+export default function ProductsPage() {
+  const { token } = useAuth();
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const [sort, setSort] = useState('name');
   const [page, setPage] = useState(1);
-  const pageSize = 9;
+  const limit = 6;
+
+  const fetchProducts = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const data = await api.get<PaginatedResponse<Product>>(
+        `/api/products?page=${page}&limit=${limit}&q=${encodeURIComponent(query)}&sort=${sort}`,
+        { token: token || undefined }
+      );
+      const items = data?.items ?? [];
+      setProducts(items);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load products');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const response = await api.get<PaginatedResponse<Product>>(
-          `/api/products?page=${page}&pageSize=${pageSize}&q=${encodeURIComponent(query)}`
-        );
-        if (!response) {
-          setError('Unable to load products.');
-          setData(null);
-        } else if (!response.ok) {
-          setError(response.error || 'Unable to load products.');
-          setData(null);
-        } else {
-          setData(response.data);
-        }
-      } catch (_error) {
-        setError('Unable to load products.');
-        setData(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [page, query]);
+    fetchProducts();
+  }, [page, sort]);
 
-  const totalPages = data ? Math.max(1, Math.ceil(data.meta.total / data.meta.pageSize)) : 1;
+  const filteredMessage = useMemo(() => (query ? `Results for “${query}”` : 'All products'), [query]);
+
+  const handleSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPage(1);
+    fetchProducts();
+  };
 
   return (
-    <main className="min-h-screen bg-muted">
-      <div className="mx-auto max-w-6xl px-4 py-12">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <main className="min-h-screen bg-muted py-10">
+      <div className="container space-y-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Product Catalog</h1>
-            <p className="text-sm text-secondary">Browse the latest inventory with search and pagination.</p>
+            <h1 className="text-3xl font-bold text-foreground">Product catalog</h1>
+            <p className="text-sm text-secondary">{filteredMessage}</p>
           </div>
-          <div className="w-full max-w-sm">
+          <a
+            href="/products/new"
+            className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
+          >
+            Add product
+          </a>
+        </div>
+
+        <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleSearch}>
+          <div className="flex-1">
             <Input
               label="Search"
               name="search"
-              placeholder="Search products by name"
               value={query}
-              onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                setPage(1);
-                setQuery(event.target.value);
-              }}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+              placeholder="Search by name"
             />
           </div>
-        </div>
+          <div className="w-full sm:w-48">
+            <label className="text-sm font-medium text-foreground" htmlFor="sort">
+              Sort by
+            </label>
+            <select
+              id="sort"
+              className="mt-2 w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground"
+              value={sort}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSort(e.target.value)}
+            >
+              <option value="name">Name</option>
+              <option value="price">Price</option>
+            </select>
+          </div>
+          <Button type="submit" className="mt-6 sm:mt-0">
+            Search
+          </Button>
+        </form>
 
         {loading ? (
-          <div className="flex justify-center py-20">
-            <Spinner className="h-10 w-10" />
+          <div className="flex justify-center py-12">
+            <Spinner />
           </div>
         ) : error ? (
-          <div className="rounded-lg border border-dashed border-border bg-white p-10 text-center text-sm text-error">
-            {error}
-          </div>
-        ) : data && data.items.length > 0 ? (
+          <p className="text-sm text-error">{error}</p>
+        ) : products.length === 0 ? (
+          <p className="text-sm text-secondary">No products found. Try adjusting your search.</p>
+        ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {data.items.map((product) => (
-              <Card key={product.id}>
+            {products.map((product) => (
+              <Card key={product.id} className="overflow-hidden">
                 <CardContent className="space-y-4">
-                  <div className="aspect-[4/3] w-full overflow-hidden rounded-lg bg-muted">
-                    {product.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full items-center justify-center text-sm text-secondary">No image</div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <h3 className="text-lg font-semibold text-foreground">{product.name}</h3>
-                    <p className="text-sm text-secondary line-clamp-2">{product.description}</p>
+                    <p className="text-sm text-secondary">{product.description}</p>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-foreground">${product.price.toFixed(2)}</span>
-                    <Badge variant={product.stock > 0 ? 'success' : 'error'}>
-                      {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                    <p className="text-base font-semibold text-foreground">${product.price.toFixed(2)}</p>
+                    <Badge variant={product.quantity && product.quantity > 0 ? 'success' : 'warning'}>
+                      {product.quantity && product.quantity > 0 ? 'In stock' : 'Out of stock'}
                     </Badge>
                   </div>
-                  <Link href={`/products/${product.id}`} className={outlineButtonClasses}>
-                    View details
-                  </Link>
+                  <a href={`/products/${product.id}`} className="text-sm font-semibold text-primary hover:text-primary-hover">
+                    View details →
+                  </a>
                 </CardContent>
               </Card>
             ))}
           </div>
-        ) : (
-          <div className="rounded-lg border border-dashed border-border bg-white p-10 text-center text-sm text-secondary">
-            No products found. Try a different search.
-          </div>
         )}
 
-        <div className="mt-10 flex items-center justify-between">
-          <Button variant="outline" disabled={page <= 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>
+        <div className="flex items-center justify-between">
+          <Button variant="outline" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={page === 1}>
             Previous
           </Button>
-          <span className="text-sm text-secondary">
-            Page {page} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            disabled={page >= totalPages}
-            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
-          >
+          <span className="text-sm text-secondary">Page {page}</span>
+          <Button variant="outline" onClick={() => setPage((prev) => prev + 1)}>
             Next
           </Button>
         </div>

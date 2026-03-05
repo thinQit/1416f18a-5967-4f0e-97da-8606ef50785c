@@ -1,19 +1,17 @@
 'use client';
 
-import { useEffect } from 'react';
-import { Button } from '@/components/ui/Button';
-
-export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  useEffect(() => {
-    console.error(error);
-  }, [error]);
-
+export default function GlobalError({ error, reset }: { error: Error; reset: () => void }) {
   return (
-    <main className="min-h-screen bg-muted">
-      <div className="mx-auto flex max-w-xl flex-col items-center gap-4 px-4 py-20 text-center">
-        <h1 className="text-3xl font-bold text-foreground">Something went wrong</h1>
-        <p className="text-sm text-secondary">We were unable to load this page. Try again in a moment.</p>
-        <Button onClick={reset}>Try again</Button>
+    <main className="container py-20">
+      <div className="rounded-xl border border-border bg-white p-8 shadow-sm">
+        <h1 className="text-2xl font-bold text-foreground">Something went wrong</h1>
+        <p className="mt-2 text-sm text-secondary">{error.message}</p>
+        <button
+          onClick={reset}
+          className="mt-6 inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover"
+        >
+          Try again
+        </button>
       </div>
     </main>
   );

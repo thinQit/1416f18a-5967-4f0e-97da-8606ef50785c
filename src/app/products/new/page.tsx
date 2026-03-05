@@ -1,220 +1,117 @@
 'use client';
 
-import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { api } from '@/lib/api';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
-
-interface UploadResponse {
-  url?: string;
-  message?: string;
-}
+import { Button } from '@/components/ui/Button';
+import { api } from '@/lib/api';
+import { useAuth } from '@/providers/AuthProvider';
+import type { Product } from '@/types';
 
 export default function AddProductPage() {
   const router = useRouter();
-  const [form, setForm] = useState({
-    name: '',
-    description: '',
-    price: '',
-    stock: '',
-    imageUrl: ''
-  });
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState('');
-  const [uploadError, setUploadError] = useState('');
-  const [uploadMessage, setUploadMessage] = useState('');
-  const [uploading, setUploading] = useState(false);
+  const { token } = useAuth();
+  const [form, setForm] = useState({ name: '', description: '', price: '', sku: '', quantity: '' });
+  const [images, setImages] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (!imagePreview) {
-      return undefined;
-    }
-    return () => {
-      URL.revokeObjectURL(imagePreview);
-    };
-  }, [imagePreview]);
-
-  const handleUpload = async () => {
-    if (!imageFile) {
-      setUploadError('Select an image to upload.');
-      return;
-    }
-    setUploading(true);
-    setUploadError('');
-    setUploadMessage('');
-
-    const formData = new FormData();
-    formData.append('image', imageFile);
-
-    try {
-      const token = window.localStorage.getItem('shopflow_token');
-      const response = await fetch('/api/upload', {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-        body: formData
-      });
-      const payload = (await response.json().catch(() => ({}))) as UploadResponse;
-      if (!response.ok || !payload.url) {
-        setUploadError(payload.message || 'Unable to upload image.');
-        return;
-      }
-      setForm((prev) => ({ ...prev, imageUrl: payload.url || '' }));
-      setUploadMessage('Image uploaded successfully.');
-    } catch (_error) {
-      setUploadError('Unable to upload image.');
-    } finally {
-      setUploading(false);
-    }
+  const handleChange = (key: keyof typeof form, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError('');
-
-    if (!form.name.trim() || !form.description.trim()) {
-      setError('Name and description are required.');
+    if (!token) {
+      setError('You must be signed in to add products.');
       return;
     }
-
-    const priceValue = Number(form.price);
-    const stockValue = Number(form.stock);
-    if (Number.isNaN(priceValue) || Number.isNaN(stockValue)) {
-      setError('Price and stock must be valid numbers.');
-      return;
-    }
-
     setLoading(true);
-
-    const response = await api.post<Product>('/api/products', {
-      name: form.name,
-      description: form.description,
-      price: priceValue,
-      stock: stockValue,
-      imageUrl: form.imageUrl || undefined
-    });
-
-    if (!response || !response.ok) {
-      setError(response?.error || 'Unable to create product');
+    try {
+      const payload = {
+        name: form.name,
+        description: form.description,
+        price: Number(form.price),
+        sku: form.sku || undefined,
+        quantity: form.quantity ? Number(form.quantity) : undefined,
+        images: images ? images.split(',').map((item) => item.trim()) : undefined
+      };
+      await api.post<{ product: Product }>('/api/products', payload, { token });
+      router.push('/products');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to create product');
+    } finally {
       setLoading(false);
-      return;
     }
-
-    router.push('/products');
   };
 
   return (
-    <main className="min-h-screen bg-muted">
-      <div className="mx-auto max-w-4xl px-4 py-12">
-        <Card className="mx-auto max-w-2xl">
-          <CardHeader>
-            <h1 className="text-2xl font-bold text-foreground">Add a new product</h1>
-            <p className="text-sm text-secondary">Admins can create catalog entries with pricing and stock details.</p>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-4" onSubmit={handleSubmit}>
-              <Input
-                label="Product name"
-                name="name"
-                placeholder="Modern Desk Lamp"
-                value={form.name}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, name: event.target.value })
-                }
-                required
-              />
-              <Input
-                label="Description"
-                name="description"
-                placeholder="Describe the product"
+    <main className="min-h-screen bg-muted py-16">
+      <div className="container">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-border bg-white p-8 shadow-lg">
+          <div className="mb-6 space-y-2">
+            <h1 className="text-3xl font-bold text-foreground">Add a new product</h1>
+            <p className="text-sm text-secondary">Capture product details and publish instantly to your catalog.</p>
+          </div>
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            <Input
+              label="Product name"
+              name="name"
+              value={form.name}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange('name', e.target.value)}
+              required
+            />
+            <div className="space-y-2">
+              <label htmlFor="description" className="text-sm font-medium text-foreground">
+                Description
+              </label>
+              <textarea
+                id="description"
+                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+                rows={4}
                 value={form.description}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                  setForm({ ...form, description: event.target.value })
-                }
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleChange('description', e.target.value)}
                 required
               />
-              <div className="grid gap-4 md:grid-cols-2">
-                <Input
-                  label="Price"
-                  name="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="99.99"
-                  value={form.price}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                    setForm({ ...form, price: event.target.value })
-                  }
-                  required
-                />
-                <Input
-                  label="Stock"
-                  name="stock"
-                  type="number"
-                  min="0"
-                  placeholder="120"
-                  value={form.stock}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                    setForm({ ...form, stock: event.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="space-y-3">
-                <Input
-                  label="Image URL"
-                  name="imageUrl"
-                  placeholder="https://example.com/image.jpg"
-                  value={form.imageUrl}
-                  onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
-                    setForm({ ...form, imageUrl: event.target.value })
-                  }
-                />
-                <div className="rounded-lg border border-dashed border-border bg-white p-4">
-                  <p className="text-sm font-medium text-foreground">Upload an image</p>
-                  <p className="text-xs text-secondary">Supported formats: JPG, PNG. Optional.</p>
-                  <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                        const file = event.target.files?.[0] ?? null;
-                        setImageFile(file);
-                        setUploadMessage('');
-                        setUploadError('');
-                        if (file) {
-                          setImagePreview(URL.createObjectURL(file));
-                        } else {
-                          setImagePreview('');
-                        }
-                      }}
-                      className="text-sm text-secondary"
-                    />
-                    <Button type="button" variant="outline" onClick={handleUpload} disabled={uploading}>
-                      {uploading ? 'Uploading...' : 'Upload image'}
-                    </Button>
-                  </div>
-                  {imagePreview && (
-                    <div className="mt-4 overflow-hidden rounded-lg bg-muted">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={imagePreview} alt="Selected product" className="h-40 w-full object-cover" />
-                    </div>
-                  )}
-                  {uploadMessage && <p className="mt-2 text-xs text-success">{uploadMessage}</p>}
-                  {uploadError && <p className="mt-2 text-xs text-error">{uploadError}</p>}
-                </div>
-              </div>
-              {error && <p className="text-sm text-error">{error}</p>}
-              <Button type="submit" disabled={loading} className="w-full">
-                {loading ? 'Saving...' : 'Create product'}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input
+                label="Price"
+                name="price"
+                type="number"
+                value={form.price}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange('price', e.target.value)}
+                required
+              />
+              <Input
+                label="SKU"
+                name="sku"
+                value={form.sku}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange('sku', e.target.value)}
+              />
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Input
+                label="Quantity"
+                name="quantity"
+                type="number"
+                value={form.quantity}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange('quantity', e.target.value)}
+              />
+              <Input
+                label="Image URLs (comma separated)"
+                name="images"
+                value={images}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setImages(e.target.value)}
+              />
+            </div>
+            {error ? <p className="text-sm text-error">{error}</p> : null}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Saving product...' : 'Create product'}
+            </Button>
+          </form>
+        </div>
       </div>
     </main>
   );

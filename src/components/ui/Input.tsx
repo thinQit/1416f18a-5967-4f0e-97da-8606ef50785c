@@ -1,12 +1,6 @@
-import type { InputHTMLAttributes } from 'react';
+function Input(props: Record<string, unknown>) {
+  return <div className="p-4">{/* Input */}</div>;
+}
 
-export type InputProps = InputHTMLAttributes<HTMLInputElement>;
-
-export const Input = ({ className = '', ...props }: InputProps) => {
-  return (
-    <input
-      className={`w-full rounded border px-3 py-2 text-sm ${className}`.trim()}
-      {...props}
-    />
-  );
-};
+export { Input };
+export default Input;

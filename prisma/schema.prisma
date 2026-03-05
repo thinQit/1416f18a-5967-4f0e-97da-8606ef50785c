@@ -8,13 +8,14 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(uuid())
+  id           String      @id @default(uuid())
   name         String
-  email        String   @unique
+  email        String      @unique
   passwordHash String
-  role         String   @default("user")
-  createdAt    DateTime @default(now())
+  role         String      @default("user")
+  createdAt    DateTime    @default(now())
   products     Product[]
+  tokens       AuthToken[]
 }
 
 model Product {
@@ -22,19 +23,21 @@ model Product {
   name        String
   description String
   price       Float
-  stock       Int
-  imageUrl    String?
+  sku         String?
+  images      String?
+  quantity    Int?
+  createdBy   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  createdBy   String?
-  creator     User?    @relation(fields: [createdBy], references: [id])
 
-  @@index([name])
-  @@index([createdAt])
+  owner       User     @relation(fields: [createdBy], references: [id])
 }
 
-model Upload {
-  id         String   @id @default(uuid())
-  url        String
-  uploadedAt DateTime @default(now())
+model AuthToken {
+  id        String   @id @default(uuid())
+  token     String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
 }

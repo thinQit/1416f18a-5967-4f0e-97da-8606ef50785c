@@ -1,26 +1,18 @@
 import type { NextRequest } from 'next/server';
-import { prisma } from '@/lib/db';
+import type { User } from '@prisma/client';
+import db from '@/lib/db';
 import { getTokenFromHeader, verifyToken } from '@/lib/auth';
 
-export async function getCurrentUser(request: NextRequest) {
-  const token =
-    getTokenFromHeader(request.headers.get('authorization')) ??
-    request.cookies.get('token')?.value ??
-    request.cookies.get('shopflow_token')?.value ??
-    null;
-
+export async function getUserFromRequest(request: NextRequest): Promise<User | null> {
+  const token = getTokenFromHeader(request.headers.get('authorization'));
   if (!token) return null;
 
   try {
     const payload = verifyToken(token);
-    const userId = typeof payload.sub === 'string' ? payload.sub : null;
+    const userId = typeof payload === 'string' ? undefined : (payload as { userId?: string }).userId;
     if (!userId) return null;
-    return prisma.user.findUnique({ where: { id: userId } });
-  } catch {
+    return db.user.findUnique({ where: { id: userId } });
+  } catch (_error) {
     return null;
   }
-}
-
-export function isAdmin(user: { role?: string | null } | null) {
-  return user?.role === 'admin';
 }

@@ -4,22 +4,22 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  const adminPassword = await bcrypt.hash('Admin123!', 10);
-  const userPassword = await bcrypt.hash('User123!', 10);
+  const userPassword = await bcrypt.hash('password123', 10);
+  const adminPassword = await bcrypt.hash('adminpassword123', 10);
 
   const admin = await prisma.user.create({
     data: {
-      name: 'Alex Admin',
-      email: 'admin@shopflow.io',
+      name: 'Admin Owner',
+      email: 'admin@prodly.com',
       passwordHash: adminPassword,
       role: 'admin'
     }
   });
 
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
-      name: 'Jamie Shopper',
-      email: 'user@shopflow.io',
+      name: 'Jamie Cataloger',
+      email: 'jamie@prodly.com',
       passwordHash: userPassword,
       role: 'user'
     }
@@ -27,25 +27,28 @@ async function main() {
 
   const products = [
     {
-      name: 'Aurora Desk Lamp',
-      description: 'Minimalist desk lamp with adjustable brightness and warm ambient glow.',
-      price: 89.99,
-      stock: 32,
-      imageUrl: '/images/feature.jpg'
+      name: 'Aurora Smart Lamp',
+      description: 'Wi-Fi enabled smart lamp with warm and cool lighting presets.',
+      price: 129,
+      sku: 'AUR-LAMP-001',
+      quantity: 24,
+      images: JSON.stringify(['/images/feature.jpg'])
     },
     {
-      name: 'Nimbus Travel Backpack',
-      description: 'Lightweight travel backpack with laptop sleeve and waterproof shell.',
-      price: 129.0,
-      stock: 18,
-      imageUrl: '/images/hero.jpg'
+      name: 'Nimbus Desk Chair',
+      description: 'Ergonomic chair with breathable mesh and adjustable lumbar support.',
+      price: 249,
+      sku: 'NIM-CHAIR-201',
+      quantity: 8,
+      images: JSON.stringify(['/images/hero.jpg'])
     },
     {
-      name: 'Crestline Coffee Set',
-      description: 'Handcrafted ceramic coffee set with four mugs and a pour-over dripper.',
-      price: 64.5,
-      stock: 45,
-      imageUrl: '/images/cta.jpg'
+      name: 'Pulse Fitness Band',
+      description: 'Slim fitness tracker with heart-rate monitoring and sleep insights.',
+      price: 79,
+      sku: 'PULSE-BAND-118',
+      quantity: 40,
+      images: JSON.stringify(['/images/cta.jpg'])
     }
   ];
 
@@ -53,14 +56,20 @@ async function main() {
     await prisma.product.create({
       data: {
         ...product,
-        createdBy: admin.id
+        createdBy: user.id
       }
     });
   }
 
-  await prisma.upload.create({
+  await prisma.product.create({
     data: {
-      url: '/uploads/sample-image.jpg'
+      name: 'Atlas Standing Desk',
+      description: 'Electric standing desk with memory presets and cable management.',
+      price: 499,
+      sku: 'ATL-DESK-402',
+      quantity: 5,
+      images: JSON.stringify(['/images/feature.jpg']),
+      createdBy: admin.id
     }
   });
 }

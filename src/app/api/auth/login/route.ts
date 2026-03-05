@@ -1,17 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import db from '@/lib/db';
-import { verifyPassword, signToken } from '@/lib/auth';
+import { signToken, verifyPassword } from '@/lib/auth';
 
-const schema = z.object({
-  email: z.string().email('Valid email is required'),
-  password: z.string().min(6, 'Password must be at least 6 characters')
+const loginSchema = z.object({
+  email: z.string().email('Invalid email'),
+  password: z.string().min(1, 'Password is required')
 });
+
+type SafeUser = { id: string; name: string; email: string; role: string; createdAt: Date };
+
+function sanitizeUser(user: { id: string; name: string; email: string; role: string; createdAt: Date }) {
+  const safeUser: SafeUser = {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    createdAt: user.createdAt
+  };
+  return safeUser;
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const data = schema.parse(body);
+    const data = loginSchema.parse(body);
 
     const user = await db.user.findUnique({ where: { email: data.email } });
     if (!user) {
@@ -23,19 +36,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: 'Invalid credentials' }, { status: 401 });
     }
 
-    const token = signToken({ id: user.id, email: user.email, role: user.role });
+    const token = signToken({ userId: user.id, role: user.role });
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    await db.authToken.create({
+      data: {
+        token,
+        expiresAt,
+        userId: user.id
+      }
+    });
 
     return NextResponse.json({
       success: true,
       data: {
+        user: sanitizeUser(user),
         token,
-        user: { id: user.id, name: user.name, email: user.email, role: user.role }
+        expiresAt: expiresAt.toISOString()
       }
     });
   } catch (error: unknown) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ success: false, error: error.errors[0]?.message || 'Invalid input' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Invalid login data' }, { status: 400 });
     }
+    console.error(JSON.stringify({ level: 'error', message: 'Login failed', error }));
     return NextResponse.json({ success: false, error: 'Login failed' }, { status: 500 });
   }
 }
