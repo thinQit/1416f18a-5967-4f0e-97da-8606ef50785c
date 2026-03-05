@@ -1,18 +1,25 @@
 import type { NextRequest } from 'next/server';
-import type { User } from '@prisma/client';
-import db from '@/lib/db';
+import { prisma } from '@/lib/db';
 import { getTokenFromHeader, verifyToken } from '@/lib/auth';
 
-export async function getUserFromRequest(request: NextRequest): Promise<User | null> {
-  const token = getTokenFromHeader(request.headers.get('authorization'));
+export async function getAuthContext(request: NextRequest) {
+  const token =
+    getTokenFromHeader(request.headers.get('authorization')) ??
+    request.cookies.get('token')?.value ??
+    null;
+
   if (!token) return null;
 
   try {
     const payload = verifyToken(token);
-    const userId = typeof payload === 'string' ? undefined : (payload as { userId?: string }).userId;
+    const userId = typeof payload.sub === 'string' ? payload.sub : null;
     if (!userId) return null;
-    return db.user.findUnique({ where: { id: userId } });
-  } catch (_error) {
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return null;
+
+    return { user, token };
+  } catch {
     return null;
   }
 }

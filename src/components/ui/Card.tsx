@@ -1,17 +1,33 @@
-import type { ReactNode } from 'react';
+import * as React from 'react';
 
-type CardProps = {
-  children?: ReactNode;
-  className?: string;
-};
+const baseCardClass = 'rounded-lg border bg-card text-card-foreground shadow-sm';
 
-function Card({ children, className }: CardProps) {
-  return <div className={`p-4 ${className ?? ''}`.trim()}>{children}</div>;
-}
+const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={[baseCardClass, className].filter(Boolean).join(' ')} {...props} />
+  )
+);
+Card.displayName = 'Card';
 
-export function CardContent({ children, className }: CardProps) {
-  return <div className={`p-4 ${className ?? ''}`.trim()}>{children}</div>;
-}
+const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={['flex flex-col space-y-1.5 p-6', className].filter(Boolean).join(' ')} {...props} />
+  )
+);
+CardHeader.displayName = 'CardHeader';
 
-export { Card };
-export default Card;
+const CardContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={['p-6 pt-0', className].filter(Boolean).join(' ')} {...props} />
+  )
+);
+CardContent.displayName = 'CardContent';
+
+const CardFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
+    <div ref={ref} className={['flex items-center p-6 pt-0', className].filter(Boolean).join(' ')} {...props} />
+  )
+);
+CardFooter.displayName = 'CardFooter';
+
+export { Card, CardHeader, CardContent, CardFooter };
