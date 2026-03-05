@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from "react";
-import Card, { CardContent, CardHeader } from "@/components/ui/Card";
-import ProductForm, { ProductFormValues } from "@/components/product/ProductForm";
-import { api } from "@/lib/api";
-import { useAuth } from "@/providers/AuthProvider";
-import { useRouter } from "next/navigation";
+import { useState } from 'react';
+import { Card, CardContent, CardHeader } from '@/components/ui/Card';
+import ProductForm, { ProductFormValues } from '@/components/product/ProductForm';
+import { api } from '@/lib/api';
+import { useAuth } from '@/providers/AuthProvider';
+import { useRouter } from 'next/navigation';
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -23,12 +23,12 @@ export default function AddProductPage() {
         price: Number(values.price),
         sku: values.sku || undefined,
         stock: values.stock ? Number(values.stock) : undefined,
-        images: values.images ? values.images.split(",").map((item) => item.trim()) : []
+        images: values.images ? values.images.split(',').map((item) => item.trim()) : []
       };
-      await api.post("/api/products", payload, token ?? undefined);
-      router.push("/products");
+      await api.post('/api/products', payload, token ?? undefined);
+      router.push('/products');
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Failed to create product";
+      const message = error instanceof Error ? error.message : 'Failed to create product';
       setError(message);
     } finally {
       setLoading(false);
